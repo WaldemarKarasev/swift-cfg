@@ -1,46 +1,47 @@
-#include <tree_sitter/api.h>
+// std
 #include <iostream>
 #include <string>
-#include <cstring>
 
-extern "C" const TSLanguage *tree_sitter_swift();
-
+// pma
+#include <frontend/registry.hpp>
+#include <utils/source_range.hpp>
+#include <diagnostic/diagnostic.hpp>
+#include <ast/ast.hpp>
+#include <printers/dot_printer.hpp>
 int main() {
     // Swift code
-    const char *source_code = R"swift(
+    const char *source_code = R"(
         func test(x: Int) -> Int {
             if x > 0 {
                 return x
             } else {
                 return -x
-            }
+            
         }
-    )swift";
+    )";
 
-    // parser creation
-    TSParser *parser = ts_parser_new();
-    ts_parser_set_language(parser, tree_sitter_swift());
+    std::string source(source_code);
 
-    // parsing
-    TSTree *tree = ts_parser_parse_string(
-        parser,
-        nullptr,
-        source_code,
-        (uint32_t)strlen(source_code)
-    );
+    pma::utils::SourceView source_view(source);
+    pma::diagnostic::StdOutDiagnostic diag(source_view);
 
-    // root node
-    TSNode root = ts_tree_root_node(tree);
+    using Lang = pma::frontends::registry::Lang;
+    using Frontend = pma::frontends::registry::Frontend;
+    pma::frontends::registry::Registry::FrontendHandle swift_front = pma::frontends::registry::Registry::CreateFrontend(Lang::Swift, Frontend::TreeSitter);
 
-    // tree -> stdout
-    char *s_expr = ts_node_string(root);
-    std::cout << "Syntax tree:\n" << s_expr << std::endl;
-    free(s_expr);
+    if (swift_front == nullptr) 
+    {
+        std::cout << "Swift-TreeSitter fronted wasn't found" << std::endl;
+        return -1;
+    }
 
-    // free-up memory
-    ts_tree_delete(tree);
-    ts_parser_delete(parser);
+    std::unique_ptr<pma::ast::BlockStmt> ast = swift_front->BuildFromRoot(source_view, diag);
 
-    return 0;
+    // build cfg
+
+    // pma::printers::DotPrinter dot_printer;
+    // dot_printer.Print("cfg.dot", )
+
+
 }
 
