@@ -1,6 +1,6 @@
 #include <frontend/registry.hpp>
 
-namespace pma::frontends::registry
+namespace pma::frontends
 {         
 
 std::map<std::pair<Lang, Frontend>, Registry::FactoryFn> Registry::reg_ = {}; // zero init 
@@ -17,4 +17,4 @@ Registry::FrontendHandle Registry::CreateFrontend(Lang lang, Frontend front)
     return it == reg_.end() ? nullptr : it->second();
 }
 
-} // namespace pma::frontends::registry
+} // namespace pma::frontends

@@ -1,6 +1,7 @@
 // std
 #include <iostream>
 #include <string>
+#include <fstream>
 
 // pma
 #include <frontend/registry.hpp>
@@ -8,26 +9,45 @@
 #include <diagnostic/diagnostic.hpp>
 #include <ast/ast.hpp>
 #include <printers/dot_printer.hpp>
-int main() {
-    // Swift code
-    const char *source_code = R"(
-        func test(x: Int) -> Int {
-            if x > 0 {
-                return x
-            } else {
-                return -x
-            
-        }
-    )";
+int main(int argc, char** argv) {
 
-    std::string source(source_code);
+    std::string filename;
+    if (argc > 1)
+    {   
+        filename = argv[1];
+    }
+    else
+    {
+        filename = "code_examples/if_else.swift";
+    }
+
+    std::string source;
+    std::ifstream file(filename);
+    if (file.is_open())
+    {
+        std::string str;
+        while (std::getline(file, str))
+        {
+            source += str + "\n";
+        }
+    }
+
+    std::cout << "CODE FILENAME: " << filename << std::endl;
+    if (source.empty())
+    {
+        std::cout << "failed to read code from file:" << filename << std::endl;
+        return -1;
+    }
+
+    std::cout << "[CODE START]:\n" << source << "\n [CODE END]" << std::endl;
+    // std::string source(source_code);
 
     pma::utils::SourceView source_view(source);
     pma::diagnostic::StdOutDiagnostic diag(source_view);
 
-    using Lang = pma::frontends::registry::Lang;
-    using Frontend = pma::frontends::registry::Frontend;
-    pma::frontends::registry::Registry::FrontendHandle swift_front = pma::frontends::registry::Registry::CreateFrontend(Lang::Swift, Frontend::TreeSitter);
+    using Lang = pma::frontends::Lang;
+    using Frontend = pma::frontends::Frontend;
+    pma::frontends::Registry::FrontendHandle swift_front = pma::frontends::Registry::CreateFrontend(Lang::Swift, Frontend::TreeSitter);
 
     if (swift_front == nullptr) 
     {

@@ -7,7 +7,7 @@
 // pma
 #include <frontend/ast_builder.hpp>
 
-namespace pma::frontends::registry
+namespace pma::frontends
 {
 
 enum class Lang : int
@@ -48,4 +48,4 @@ struct AutoRegister
 };
 
 
-} // namespace pma::frontends::registry
+} // namespace pma::frontends

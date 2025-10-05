@@ -20,7 +20,7 @@ std::unique_ptr<IAstBuilder> MakeSwiftTreeSitterAstBuilder()
 
 // static frontend registration
 static bool register_frontend = [](){
-    frontends::registry::AutoRegister reg(registry::Lang::Swift, registry::Frontend::TreeSitter, &MakeSwiftTreeSitterAstBuilder);
+    frontends::AutoRegister reg(Lang::Swift, Frontend::TreeSitter, &MakeSwiftTreeSitterAstBuilder);
     return true;
 }();
 

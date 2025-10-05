@@ -23,7 +23,10 @@ struct Stmt
         Return, 
         Break, 
         Continue, 
-        Expr
+        Expr,
+        Switch,
+        SwitchCase,
+        Lable,
     };
         
     explicit Stmt(Kind k): kind_(k) {}
@@ -64,8 +67,8 @@ struct ForStmt : Stmt
 {
     ForStmt(): Stmt(For) {}
 
-    std::string init, cond, step;
-    utils::SourceRange initR{}, condR{}, stepR{};
+    std::string item, collection;
+    utils::SourceRange itemR{}, collectionR{};
     std::unique_ptr<BlockStmt> body;
 };
 
@@ -78,21 +81,33 @@ struct DoWhileStmt : Stmt
     std::unique_ptr<BlockStmt> body;
 };
 
-struct ReturnStmt : Stmt 
+struct ControlStmt : Stmt
 {
-    ReturnStmt(): Stmt(Return) {}
-    std::string expr;
-    utils::SourceRange exprR{};
+    ControlStmt(Kind kind) : Stmt(kind) {}
+    bool has_lable = false;
+    std::string lable;
+    utils::SourceRange lableR{};
 };
 
-struct BreakStmt : Stmt 
+
+struct ReturnStmt : ControlStmt
+{
+    ReturnStmt(): ControlStmt(Return) {}
+};
+
+struct BreakStmt : ControlStmt 
 { 
-    BreakStmt() : Stmt(Break) {} 
+    BreakStmt() : ControlStmt(Break) {} 
 };
 
-struct ContinueStmt : Stmt
+struct ContinueStmt : ControlStmt
 {
-    ContinueStmt() : Stmt(Continue) {} 
+    ContinueStmt() : ControlStmt(Continue) {} 
+};
+
+struct FallthroughStmt : Stmt
+{
+    bool synthetic = false;
 };
 
 struct ExprStmt : Stmt 
@@ -102,4 +117,42 @@ struct ExprStmt : Stmt
     utils::SourceRange exprR{};
 };
     
+// -------------------- Switch/Case --------------------
+
+struct SwitchCaseStmt : Stmt
+{
+    enum class Terminator {
+        None,
+        Break,
+        Fallthrough,
+    };
+
+    Terminator terminator = Terminator::None;
+    bool is_default = false;
+    std::string pattern;
+    std::unique_ptr<ExprStmt> guard;
+    std::unique_ptr<BlockStmt> body; 
+
+    SwitchCaseStmt() : Stmt(Stmt::SwitchCase) {}
+};
+
+struct SwitchStmt : Stmt
+{
+    std::string condition;           
+    utils::SourceRange condition_range;
+
+    std::vector<std::unique_ptr<SwitchCaseStmt>> cases; 
+
+    SwitchStmt() : Stmt(Stmt::Switch) {}
+};
+
+// ------------------- Lable ----------------------
+struct LableStmt : Stmt
+{
+    std::string lable{};
+    utils::SourceRange lableR{};
+
+    LableStmt() : Stmt(Stmt::Lable) {}
+};
+
 } // namespace pma::ast

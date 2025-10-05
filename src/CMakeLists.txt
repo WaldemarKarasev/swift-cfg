@@ -17,3 +17,8 @@ target_include_directories(swift_cfg PRIVATE
   ${SWIFT_GEN_DIR}/src
   ${CMAKE_SOURCE_DIR}/src
 )
+
+add_executable(playground
+  playground.cpp   
+)
+target_link_libraries(playground PRIVATE tree-sitter tree-sitter-swift)
