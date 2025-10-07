@@ -9,17 +9,45 @@
 #include <diagnostic/diagnostic.hpp>
 #include <ast/ast.hpp>
 #include <printers/dot_printer.hpp>
+#include <printers/json_tree_serializer.hpp>
+
 int main(int argc, char** argv) {
 
     std::string filename;
-    if (argc > 1)
+    std::string ast_filename;
+    std::string dot_filename;
+    std::cout << "argc=" << argc << std::endl;
+
+    for (int i = 0; i < argc; ++i)
+    {
+        std::cout << "argc_" << i << ": " << argv[i] << std::endl;
+    }
+
+    if (argc > 3)
+    {
+        filename = argv[1];
+        ast_filename = argv[2];
+        dot_filename = argv[3];
+    }
+    else if (argc > 2)
+    {
+        filename = argv[1];
+        ast_filename = argv[2];
+    }
+    else if (argc > 1)
     {   
         filename = argv[1];
     }
     else
     {
         filename = "code_examples/if_else.swift";
+        ast_filename = "ast.json";
+        dot_filename = "cfg.dot";
     }
+
+    std::cout << "filename: " << filename << std::endl;
+    std::cout << "ast_filename: " << ast_filename << std::endl;
+    std::cout << "dot_filename: " << dot_filename << std::endl;
 
     std::string source;
     std::ifstream file(filename);
@@ -56,6 +84,21 @@ int main(int argc, char** argv) {
     }
 
     std::unique_ptr<pma::ast::BlockStmt> ast = swift_front->BuildFromRoot(source_view, diag);
+
+    pma::printers::JsonTreeSerializer serializer;
+    serializer.Print(std::cout, *ast);
+
+    {
+        std::ofstream ast_file(ast_filename);
+        if (ast_file.is_open())
+        {
+            serializer.Print(ast_file, *ast);
+        }
+        else
+        {
+            std::cout << "Cannot open file: " << ast_filename << std::endl;
+        }
+    }
 
     // build cfg
 

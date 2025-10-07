@@ -23,6 +23,7 @@ struct Stmt
         Return, 
         Break, 
         Continue, 
+        Fallthrough,
         Expr,
         Switch,
         SwitchCase,
@@ -89,7 +90,6 @@ struct ControlStmt : Stmt
     utils::SourceRange lableR{};
 };
 
-
 struct ReturnStmt : ControlStmt
 {
     ReturnStmt(): ControlStmt(Return) {}
@@ -105,8 +105,9 @@ struct ContinueStmt : ControlStmt
     ContinueStmt() : ControlStmt(Continue) {} 
 };
 
-struct FallthroughStmt : Stmt
+struct FallthroughStmt : ControlStmt
 {
+    FallthroughStmt() : ControlStmt(Fallthrough) {}
     bool synthetic = false;
 };
 

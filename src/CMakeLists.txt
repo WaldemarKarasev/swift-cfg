@@ -8,10 +8,11 @@ add_executable(swift_cfg
   frontend/registry.cpp
   frontend/swift.cpp
   printers/dot_printer.cpp 
+  printers/json_tree_serializer.cpp 
   main.cpp   
 )
 
-target_link_libraries(swift_cfg PRIVATE tree-sitter tree-sitter-swift)
+target_link_libraries(swift_cfg PRIVATE tree-sitter tree-sitter-swift nlohmann_json::nlohmann_json)
 target_include_directories(swift_cfg PRIVATE
   ${CMAKE_SOURCE_DIR}/vendor/tree-sitter/lib/include
   ${SWIFT_GEN_DIR}/src
