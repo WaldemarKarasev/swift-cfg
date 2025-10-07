@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <iostream>
 
 // tree-sitter api
 #include <tree_sitter/api.h>
@@ -90,20 +91,55 @@ std::unique_ptr<ast::IfStmt> build_if(TSNode n, const utils::SourceView& sv)
     TSNode cond = field(n, condition_name);
     out->cond  = std::string(text_of(sv, cond)); // conditional statement string
     out->condR = rng(cond); // conditional source range
-
-    // if_clause code block
-    TSNode thenNode = field(n, statements_name);
-    if (!is_null(thenNode)) 
+    
+    // std::cout << "======================" << std::endl;
+    bool else_exists = false;
+    for (const auto child : named_children(n))
     {
-        out->thenB = build_block(thenNode, sv);
-    }
+        std::cout << "node_type: " << node_type(child) << std::endl;//<< "; text: " << text_of(sv, child) << std::endl;
 
-    // else_clause 
-    TSNode elseNode = field(n, else_name); 
-    if (!is_null(elseNode)) 
-    {
-        out->elseB = build_block(elseNode, sv);
+        for (const auto child_next : named_children(child))
+        {
+            std::cout << "   child_node: " << node_type(child_next) << std::endl;
+        }
+
+        const auto t = node_type(child);
+        if (t == else_name)
+        {
+            else_exists = true;
+            // probably will be an 
+        }
+        if (t == statements_name)
+        {
+            if (else_exists)
+            {
+                std::cout << "Building simple else stmt block" << std::endl;
+                out->elseB = build_block(child, sv);
+            }
+            else
+            {
+                std::cout << "Building if stmt block" << std::endl;
+                out->thenB = build_block(child, sv);
+            }
+        }
+        if (t == if_statement_name)
+        {
+            if (else_exists)
+            {
+                auto block = std::make_unique<ast::BlockStmt>();
+                block->stmts_.push_back(build_if(child, sv));
+                out->elseB = std::move(block);
+            }
+            else
+            {
+                std::cout << "Unable to build nested if statement block without else flag raised" << std::endl;
+            }
+        }
+
     }
+    // std::cout << "======================" << std::endl;
+
+
     return out;
 }
 

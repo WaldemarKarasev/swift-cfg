@@ -9,6 +9,7 @@ add_executable(swift_cfg
   frontend/swift.cpp
   printers/dot_printer.cpp 
   printers/json_tree_serializer.cpp 
+  app.cpp
   main.cpp   
 )
 
