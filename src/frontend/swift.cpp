@@ -38,6 +38,7 @@ const char* where_keyword_name = "where_keyword";
 const char* default_keyword_name = "default_keyword";
 const char* statement_label_name = "statement_label";
 const char* control_transfer_statement_name = "control_transfer_statement";
+const char* simple_identifier_name = "simple_identifier";
 
 inline TSNode field(TSNode n, const char* name) 
 {
@@ -96,11 +97,11 @@ std::unique_ptr<ast::IfStmt> build_if(TSNode n, const utils::SourceView& sv)
     bool else_exists = false;
     for (const auto child : named_children(n))
     {
-        std::cout << "node_type: " << node_type(child) << std::endl;//<< "; text: " << text_of(sv, child) << std::endl;
+        // std::cout << "node_type: " << node_type(child) << std::endl;//<< "; text: " << text_of(sv, child) << std::endl;
 
         for (const auto child_next : named_children(child))
         {
-            std::cout << "   child_node: " << node_type(child_next) << std::endl;
+            // std::cout << "   child_node: " << node_type(child_next) << std::endl;
         }
 
         const auto t = node_type(child);
@@ -113,12 +114,12 @@ std::unique_ptr<ast::IfStmt> build_if(TSNode n, const utils::SourceView& sv)
         {
             if (else_exists)
             {
-                std::cout << "Building simple else stmt block" << std::endl;
+                // std::cout << "Building simple else stmt block" << std::endl;
                 out->elseB = build_block(child, sv);
             }
             else
             {
-                std::cout << "Building if stmt block" << std::endl;
+                // std::cout << "Building if stmt block" << std::endl;
                 out->thenB = build_block(child, sv);
             }
         }
@@ -132,7 +133,7 @@ std::unique_ptr<ast::IfStmt> build_if(TSNode n, const utils::SourceView& sv)
             }
             else
             {
-                std::cout << "Unable to build nested if statement block without else flag raised" << std::endl;
+                // std::cout << "Unable to build nested if statement block without else flag raised" << std::endl;
             }
         }
 
@@ -150,11 +151,16 @@ std::unique_ptr<ast::WhileStmt> build_while(TSNode n, const utils::SourceView& s
     out->cond  = std::string(text_of(sv, cond));
     out->condR = rng(cond);
 
-    TSNode body = field(n, statements_name);
-    if (!is_null(body) )
+
+    // statements in repeat block
+    for (auto child : named_children(n))
     {
-        out->body = build_block(body, sv);
+        if (node_type(child) == statements_name)
+        {
+            out->body = build_block(child, sv);
+        }
     }
+
     return out;
 }
 
@@ -168,11 +174,14 @@ std::unique_ptr<ast::DoWhileStmt> build_repeat_while(TSNode n, const utils::Sour
     out->condR = rng(cond);
 
     // statements in repeat block
-    TSNode body = field(n, statements_name);
-    if (!is_null(body))
+    for (auto child : named_children(n))
     {
-        out->body = build_block(body, sv);
+        if (node_type(child) == statements_name)
+        {
+            out->body = build_block(child, sv);
+        }
     }
+
     return out;
 }
 
@@ -187,11 +196,14 @@ std::unique_ptr<ast::ForStmt> build_for_in(TSNode n, const utils::SourceView& sv
     out->collection     = std::string(text_of(sv, collection));
     out->collectionR    = rng(collection);
 
-    TSNode body = field(n, statements_name);
-    if (!is_null(body))
+    for (auto child : named_children(n))
     {
-        out->body = build_block(body, sv);
+        if (node_type(child) == statements_name)
+        {
+            out->body = build_block(child, sv);
+        }
     }
+
     return out;
 }
 
@@ -283,9 +295,12 @@ std::unique_ptr<ast::Stmt> build_control_statement(TSNode n, const utils::Source
             if (unnamed_type == "continue") control_stmt = std::make_unique<ast::ContinueStmt>();
             if (unnamed_type == "break")    control_stmt = std::make_unique<ast::BreakStmt>();
         }
-        else
-        {
-            lable = node_type(child);
+
+        if (node_type(child) == simple_identifier_name)
+        {        
+            // std::cout << "node_type:" << node_type(child) << "; text_of:" << text_of(sv, child) << std::endl;
+            // std::cout << "node_type:" << node_type(child) << std::endl;
+            lable = text_of(sv, child);
             lableR = rng(child);
         }
     }

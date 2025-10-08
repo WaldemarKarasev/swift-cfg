@@ -13,10 +13,11 @@ void CFGTestFunc(pma::App& app, std::string source, std::string out_ast, std::st
 
 int main(int argc, char** argv) 
 {
-    #if 1
+    #if 0
     pma::App app;
     // if_else
-    CFGTestFunc(app, "code_examples/if_else.swift", "if_else.json", "");
+    // CFGTestFunc(app, "code_examples/func.swift", "func.json", "");
+    CFGTestFunc(app, "code_examples/while.swift", "while.json", "");
     return 0;
     // return app.BuildCfg(argc, argv);
     

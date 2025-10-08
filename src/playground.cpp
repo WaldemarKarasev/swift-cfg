@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        filename = "code_examples/if_else.swift";
+        filename = "code_examples/for_break_continue.swift";
     }
 
     std::string source;
