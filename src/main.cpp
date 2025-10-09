@@ -17,7 +17,7 @@ int main(int argc, char** argv)
     pma::App app;
     // if_else
     // CFGTestFunc(app, "code_examples/func.swift", "func.json", "");
-    CFGTestFunc(app, "code_examples/while.swift", "while.json", "");
+    CFGTestFunc(app, "code_examples/func.swift", "func.json", "");
     return 0;
     // return app.BuildCfg(argc, argv);
     

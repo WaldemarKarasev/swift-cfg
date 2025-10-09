@@ -28,6 +28,7 @@ struct Stmt
         Switch,
         SwitchCase,
         Lable,
+        Function,
     };
         
     explicit Stmt(Kind k): kind_(k) {}
@@ -154,6 +155,35 @@ struct LableStmt : Stmt
     utils::SourceRange lableR{};
 
     LableStmt() : Stmt(Stmt::Lable) {}
+};
+
+// ------------------- Funtion declaration ----------------------
+struct Param
+{
+    std::string external_name{};
+    std::string local_name{};
+    std::string type_name{};
+
+    utils::SourceRange external_nameR{};
+    utils::SourceRange local_nameR{};
+    utils::SourceRange type_nameR{};
+};
+
+struct FunctionSignature
+{
+    std::string name;
+    utils::SourceRange nameR;
+    std::vector<Param> params;
+    std::string return_type; // "" -> Void
+    utils::SourceRange return_typeR{};
+};
+
+struct FunctionDeclStmt : Stmt
+{
+    FunctionSignature signature;
+    std::unique_ptr<BlockStmt> body;
+    
+    FunctionDeclStmt() : Stmt(Stmt::Function) {}
 };
 
 } // namespace pma::ast

@@ -72,11 +72,11 @@ void traverse_tree_unnamed(const std::string& source, TSNode root, std::string i
         const char* field_name = ts_node_field_name_for_child(root, i);
         if (field_name == nullptr)
         { 
-            std::cout << indent << "|Unnamed child:" << ts_node_type(child) << "; text_of:" << text_of(source, child) << std::endl;
+            std::cout << indent << "|Unnamed child field:\"\"; node_type: " << ts_node_type(child) << "; text_of:" << text_of(source, child) << std::endl;
         }
         else
         {
-            std::cout << indent << "|Named field:" << field_name << "(" << ts_node_type(child) << ") ; text_of:" << text_of(source, child) << std::endl;
+            std::cout << indent << "|Named field:" << field_name << "; node_type: " << ts_node_type(child) << "; text_of:" << text_of(source, child) << std::endl;
         }
         traverse_tree_unnamed(source, child, indent + " ");
     }
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        filename = "code_examples/for_break_continue.swift";
+        filename = "code_examples/func.swift";
     }
 
     std::string source;

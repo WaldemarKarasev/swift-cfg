@@ -29,6 +29,7 @@ std::string KindToString(ast::Stmt::Kind kind)
     case Kind::Switch:      return "SwitchStmt";
     case Kind::SwitchCase:  return "SwitchCaseStmt";
     case Kind::Lable:       return "LableStmt";
+    case Kind::Function:    return "Function";
     default:
         break;
     }
@@ -160,6 +161,41 @@ static json_type JLableStmt(const ast::LableStmt& lable_stmt)
     };
 }
 
+static json_type JFuncPapams(const std::vector<ast::Param>& params)
+{
+    json_type j_params = json_type::array();
+    for (const auto& param : params)
+    {
+        json_type j_param = json_type{
+            {"external_name", param.external_name},
+            {"local_name", param.local_name},
+            {"type", param.type_name},
+        };
+
+        j_params.push_back(std::move(j_param));
+    }
+
+    return j_params;
+}
+
+static json_type JSignature(const ast::FunctionSignature& sig)
+{
+    return json_type{
+        {"name", sig.name},
+        {"params", JFuncPapams(sig.params)},
+        {"return_type", sig.return_type},
+    };
+}
+
+static json_type JFunctionDeclStmt(const ast::FunctionDeclStmt& func_stmt)
+{
+    return json_type{
+        {"kind", KindToString(func_stmt.kind_)},
+        {"signature", JSignature(func_stmt.signature)},
+        {"body", func_stmt.body ? JBlockStmt(*func_stmt.body) : json_type(nullptr)},
+    };
+}
+
 static json_type JStmt(const ast::Stmt& stmt)
 {
     using Kind = ast::Stmt::Kind;
@@ -178,6 +214,7 @@ static json_type JStmt(const ast::Stmt& stmt)
     case Kind::Switch:      return JSwitchStmt(static_cast<const ast::SwitchStmt&>(stmt));
     case Kind::SwitchCase:  return JSwitchCaseStmt(static_cast<const ast::SwitchCaseStmt&>(stmt));
     case Kind::Lable:       return JLableStmt(static_cast<const ast::LableStmt&>(stmt));
+    case Kind::Function:    return JFunctionDeclStmt(static_cast<const ast::FunctionDeclStmt&>(stmt));
     default:
         break;
     }

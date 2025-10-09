@@ -39,6 +39,8 @@ const char* default_keyword_name = "default_keyword";
 const char* statement_label_name = "statement_label";
 const char* control_transfer_statement_name = "control_transfer_statement";
 const char* simple_identifier_name = "simple_identifier";
+const char* function_declaration_name = "function_declaration";
+const char* parameter_name = "parameter";
 
 inline TSNode field(TSNode n, const char* name) 
 {
@@ -295,14 +297,20 @@ std::unique_ptr<ast::Stmt> build_control_statement(TSNode n, const utils::Source
             if (unnamed_type == "continue") control_stmt = std::make_unique<ast::ContinueStmt>();
             if (unnamed_type == "break")    control_stmt = std::make_unique<ast::BreakStmt>();
         }
+        
+        if (TSNode node = field(n, "result"); !is_null(node))
+        {
+            lable = text_of(sv, node);
+            lableR = rng(node);
 
-        if (node_type(child) == simple_identifier_name)
-        {        
-            // std::cout << "node_type:" << node_type(child) << "; text_of:" << text_of(sv, child) << std::endl;
-            // std::cout << "node_type:" << node_type(child) << std::endl;
-            lable = text_of(sv, child);
-            lableR = rng(child);
         }
+        // if (node_type(child) == simple_identifier_name)
+        // {        
+        //     // std::cout << "node_type:" << node_type(child) << "; text_of:" << text_of(sv, child) << std::endl;
+        //     // std::cout << "node_type:" << node_type(child) << std::endl;
+        //     lable = text_of(sv, child);
+        //     lableR = rng(child);
+        // }
     }
     
     if (control_stmt != nullptr && !lable.empty())
@@ -337,6 +345,80 @@ std::unique_ptr<ast::LableStmt> build_lable(TSNode n, const utils::SourceView& s
     return lable;
 }
 
+std::unique_ptr<ast::FunctionDeclStmt> build_func_decl(TSNode n, const utils::SourceView& sv) 
+{
+    auto func = std::make_unique<ast::FunctionDeclStmt>();
+    for (auto child : named_children(n))
+    {
+        const auto t = node_type(child);
+        if (t == simple_identifier_name)
+        {
+            func->signature.name = text_of(sv, child);
+            func->signature.nameR = rng(child);
+        }
+
+        if (t == parameter_name)
+        {
+            ast::Param param{}; 
+            
+            for (auto param_child : named_children(child))
+            {
+                if (node_type(param_child) == simple_identifier_name)
+                {
+                    std::vector<const char*> field_names = {"external_name", "name"};
+                    
+                    for (const char* name : field_names)
+                    {
+                        auto node = field(child, name);
+                        if (!is_null(node))
+                        {
+                            if (name == "external_name")
+                            {
+                                param.external_name = text_of(sv, node);
+                                param.external_nameR = rng(node);
+                            }
+                            if (name == "name")
+                            {
+                                param.local_name = text_of(sv, node);
+                                param.local_nameR = rng(node);
+                            }
+                        }
+                    }
+
+                    
+
+                }
+                if (node_type(param_child) == "user_type")
+                {
+                    param.type_name = text_of(sv, param_child);
+                    param.type_nameR = rng(param_child);
+                }
+
+            }
+            func->signature.params.push_back(std::move(param));
+        }
+
+        if (t == "user_type")
+        {
+            func->signature.return_type = text_of(sv, child);
+            func->signature.return_typeR = rng(child);
+        }
+
+        if (t == "function_body")
+        {
+            for (auto body : named_children(child))
+            {
+                if (node_type(body) == statements_name)
+                {
+                    func->body = build_block(body, sv);
+                }
+            }
+        }
+    }
+
+    return func;
+}
+
 std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv) {
     const auto t = node_type(n);
 
@@ -349,7 +431,7 @@ std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv) {
 
     if (t == control_transfer_statement_name)   return build_control_statement(n, sv);
     if (t == statement_label_name)              return build_lable(n, sv);
-
+    if (t == function_declaration_name)         return build_func_decl(n, sv);
     // As expresion by default
     auto e = std::make_unique<ast::ExprStmt>();
     e->expr  = std::string(text_of(sv, n));
