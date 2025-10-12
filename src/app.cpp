@@ -13,6 +13,8 @@
 #include <printers/dot_printer.hpp>
 #include <printers/json_tree_serializer.hpp>
 
+#include <cfg/cfg.hpp>
+#include <cfg/cfg_builder.hpp>
 
 namespace pma
 {
@@ -98,8 +100,7 @@ int App::BuildCfg(std::string filename, std::string ast_filename, std::string do
     std::unique_ptr<ast::BlockStmt> ast = swift_front->BuildFromRoot(source_view, diag);
 
     printers::JsonTreeSerializer serializer;
-    serializer.Print(std::cout, *ast);
-
+    // serializer.Print(std::cout, *ast);
     {
         std::ofstream ast_file(ast_filename);
         if (ast_file.is_open())
@@ -113,9 +114,14 @@ int App::BuildCfg(std::string filename, std::string ast_filename, std::string do
     }
 
     // build cfg
-    
-    // pma::printers::DotPrinter dot_printer;
-    // dot_printer.Print("cfg.dot", )
+    cfg::CFGBuilder cfg_builder;
+    cfg::Graph cfg_graph = cfg_builder.Build(*ast);
+
+    // serializer.Print(std::cout, cfg_graph);
+
+
+    printers::DotPrinter dot_printer;
+    dot_printer.Print(std::filesystem::path{dot_filename}, cfg_graph);
     
     return 0;
 }

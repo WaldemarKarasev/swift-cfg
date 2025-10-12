@@ -237,15 +237,34 @@ std::unique_ptr<ast::SwitchStmt> build_switch(TSNode n, const utils::SourceView&
                 if (t == switch_pattern_name)
                 {
                     // switch_pattern
-                    sc->pattern = text_of(sv, entry_children);
+                    if (sc->pattern.empty())
+                    {
+                        sc->pattern = text_of(sv, entry_children);
+                    } 
+                    else
+                    {
+                        sc->pattern += ", ";
+                        sc->pattern += text_of(sv, entry_children);
+                    } 
                 }
 
                 if (t == where_keyword_name)
                 {
+                    std::cout << "where caught. text: " << std::endl;
                     // where stmt
                     auto guard = std::make_unique<ast::ExprStmt>();
-                    guard->expr  = std::string(text_of(sv, entry_children));
-                    guard->exprR = rng(entry_children);
+                    sc->guard = std::move(guard);
+                }
+
+                if (sc->guard != nullptr && t != where_keyword_name)
+                {
+                    std::cout << "where expression detected. type: " << node_type(entry_children) << std::endl;
+                    if (std::string(t).find("expression") != std::string::npos)
+                    {
+                        sc->guard->expr = std::string(text_of(sv, entry_children));
+                        sc->guard->exprR = rng(entry_children);
+                        std::cout << "where expresiion: " << sc->guard->expr << std::endl;
+                    }
                 }
 
                 if (t == statements_name)
@@ -302,6 +321,7 @@ std::unique_ptr<ast::Stmt> build_control_statement(TSNode n, const utils::Source
         {
             lable = text_of(sv, node);
             lableR = rng(node);
+            std::cout << "ast lable=" << lable << std::endl;
 
         }
         // if (node_type(child) == simple_identifier_name)
@@ -335,12 +355,28 @@ std::unique_ptr<ast::BlockStmt> build_block(TSNode n, const utils::SourceView& s
     return blk;
 }
 
+static std::string trim(std::string s)
+{
+    auto ws = [](unsigned char c){ return std::isspace(c); };
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+                                    [&](unsigned char c){ return !ws(c); }));
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+                         [&](unsigned char c){ return !ws(c); }).base(), s.end());
+
+    while (!s.empty() && s.back() == ':')
+        s.pop_back();
+
+    return s;
+}
+
+
 std::unique_ptr<ast::LableStmt> build_lable(TSNode n, const utils::SourceView& sv) 
 {
     auto lable = std::make_unique<ast::LableStmt>();
     
-    lable->lable = std::string(text_of(sv, n));
+    lable->lable = trim(std::string(text_of(sv, n)));
     lable->lableR = rng(n);
+    std::cout << "ast lable.lable=" << lable->lable << std::endl;
 
     return lable;
 }

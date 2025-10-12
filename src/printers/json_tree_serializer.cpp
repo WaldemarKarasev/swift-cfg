@@ -11,6 +11,70 @@ namespace pma::printers
 
 using json_type = nlohmann::ordered_json;
 
+// CFG json serialization
+
+template <typename T>
+static json_type vec_to_jarr(const std::vector<T>& vec)
+{
+    json_type arr = json_type::array();
+
+    for (const auto& elem : vec)
+    {
+        arr.push_back(elem);
+    }
+
+    return arr;
+}
+
+static json_type JEdges(const std::vector<cfg::Edge>& edges)
+{
+    json_type arr = json_type::array();
+    for (const auto& edge : edges)
+    {
+        json_type j_edge = json_type{
+            {"to", edge.to},
+            {"lable", edge.label},
+        };
+
+        arr.push_back(std::move(j_edge));
+    }
+
+    return arr;
+}
+
+static json_type JCfgBlocks(const std::vector<cfg::BasicBlock>& blocks)
+{
+    json_type arr = json_type::array();
+    for (const auto& block : blocks)
+    {
+        json_type jblock = json_type {
+            {"id", block.id},
+            {"closed", block.closed},
+            {"instr", vec_to_jarr<std::string>(block.instrs)},
+            {"outs", JEdges(block.outs)},            
+        };
+
+        arr.push_back(std::move(jblock));
+    }
+
+    return arr;
+}
+
+void JsonTreeSerializer::Print(std::ostream& os, const cfg::Graph& cfg)
+{
+    json_type cfg_json = json_type{
+        {"entry", cfg.entry},
+        {"exit", cfg.exit},
+        {"blocks", JCfgBlocks(cfg.blocks)}
+    };
+
+    os << cfg_json.dump(2);
+    return;
+}
+
+
+// AST json serialization
+
 std::string KindToString(ast::Stmt::Kind kind)
 {
     using Kind = ast::Stmt::Kind;
@@ -43,7 +107,7 @@ static json_type JBlockStmt(const ast::BlockStmt& block)
 {
     json_type array = json_type::array();
 
-    std::cout << "block.stmts_.size()=" << block.stmts_.size() << std::endl;
+    // std::cout << "block.stmts_.size()=" << block.stmts_.size() << std::endl;
     for (auto& stmt : block.stmts_)
     {
         array.push_back(stmt ? JStmt(*stmt) : json_type(nullptr));
@@ -223,9 +287,7 @@ static json_type JStmt(const ast::Stmt& stmt)
 
 void JsonTreeSerializer::Print(const ast::Stmt& root)
 {
-    json_type j = JStmt(root);
-
-    std::cout << j.dump(2) << std::endl;
+    Print(std::cout, root);
 }
 
 void JsonTreeSerializer::Print(std::ostream& os, const ast::Stmt& root)

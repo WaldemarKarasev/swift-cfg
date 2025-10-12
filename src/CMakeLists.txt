@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_executable(swift_cfg
+  cfg/cfg_builder.cpp
   diagnostic/diagnostic.cpp
   frontend/registry.cpp
   frontend/swift.cpp
