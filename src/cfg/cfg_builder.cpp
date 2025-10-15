@@ -5,8 +5,152 @@
 #include <iostream>
 #include <optional>
 #include <sstream>
+#include <unordered_set>
 
-using namespace pma;
+
+
+
+
+// passes/remove_empty_blocks.hpp
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <unordered_set>
+#include <utility>
+#include <cassert>
+#include <tuple>
+
+
+namespace pma::cfg::passes
+{
+    // returns true if Graph was been changed
+    inline bool RemoveEmptyBlocksOnce(Graph& g)
+    {
+        const int N = (int)g.blocks.size();
+        if (N == 0) return false;
+
+        auto is_candidate = [&](int i) -> bool 
+        {
+            if (i < 0 || i >= (int)g.blocks.size()) return false;
+            const auto& b = g.blocks[i];
+            if (b.id != i) return false; // id == index
+            if (i == g.entry || i == g.exit) return false; // not an entry or exit of the Graph g
+            if (!b.instrs.empty()) return false; // empty basic block instructions
+            if (b.outs.size() != 1) return false; // non one output
+            return true;
+        };
+
+        // 1. collecting candidates
+        std::vector<int> cand;
+        cand.reserve(g.blocks.size());
+        for (int i = 0; i < (int)g.blocks.size(); ++i)
+        {
+            if (is_candidate(i)) cand.push_back(i);
+        }
+        if (cand.empty()) return false;
+
+        // 2. collecting labels and outputs and successors for each candidate
+        std::vector<int> succ_of(g.blocks.size(), -1);
+        std::vector<std::string> succ_label(g.blocks.size());
+        for (int i : cand) 
+        {
+            const auto& e = g.blocks[i].outs[0];
+            succ_of[i] = e.to;
+            succ_label[i] = e.label; 
+        }
+
+        // 3. Redirecting all input edges of all blocks into: p -> i  ==>  p -> succ(i).
+        //    If edge p->i didn't has a label and i->succ had then redirecting this label too.
+        for (auto& pred : g.blocks) 
+        {
+            for (auto& e : pred.outs) 
+            {
+                const int tgt = e.to;
+                if (tgt < 0 || tgt >= (int)g.blocks.size()) continue;
+                if (succ_of[tgt] == -1) continue; // not a candidate
+
+                const int s = succ_of[tgt];
+                e.to = s;
+                if (e.label.empty() && !succ_label[tgt].empty())
+                    e.label = succ_label[tgt];
+            }
+        }
+
+        // 4. Mapping candidated for deleting. From this point they don't need for us
+        std::vector<char> deleted(g.blocks.size(), 0);
+        for (int i : cand) deleted[i] = 1;
+
+        // 5. Building mapping old_id -> new_id and new vector of basic blocks
+        std::vector<int> idmap(g.blocks.size(), -1);
+        std::vector<BasicBlock> nb;
+        nb.reserve(g.blocks.size() - cand.size());
+        for (int i = 0; i < (int)g.blocks.size(); ++i) 
+        {
+            if (deleted[i]) continue;
+            idmap[i] = (int)nb.size();
+            BasicBlock copy = g.blocks[i];
+            copy.id = idmap[i];
+            nb.push_back(std::move(copy));
+        }
+
+        // 6. Remapping edges with new id and parallel deduplication (to,label).
+        for (auto& b : nb)
+        {
+            // remapping
+            for (auto& e : b.outs) 
+            {
+                if (e.to >= 0) e.to = idmap[e.to];
+            }
+            // clearing blocken (-1) and duplicated
+            b.outs.erase(
+                std::remove_if(b.outs.begin(), b.outs.end(),
+                               [](const Edge& e){ return e.to < 0; }),
+                b.outs.end()
+            );
+
+            // deduplication (to,label)
+            std::sort(b.outs.begin(), b.outs.end(),
+                      [](const Edge& a, const Edge& b){
+                          if (a.to != b.to) return a.to < b.to;
+                          return a.label < b.label;
+                      });
+            b.outs.erase(
+                std::unique(b.outs.begin(), b.outs.end(),
+                            [](const Edge& a, const Edge& b){
+                                return a.to == b.to && a.label == b.label;
+                            }),
+                b.outs.end()
+            );
+        }
+
+        // 7. Updating entry/exit.
+        g.entry = (g.entry >= 0) ? idmap[g.entry] : -1;
+        g.exit  = (g.exit  >= 0) ? idmap[g.exit]  : -1;
+
+        // Sanity check
+        if (g.entry < 0 || g.entry >= (int)nb.size()) 
+        {
+            // if entry collapes (can't happend, do not delete),
+            // set to 0
+            if (!nb.empty()) g.entry = 0;
+        }
+        if (g.exit < 0 || g.exit >= (int)nb.size()) 
+        {
+            if (!nb.empty()) g.exit = (int)nb.size() - 1;
+        }
+
+        g.blocks = std::move(nb);
+        return true;
+    }
+
+    inline void RemoveEmptyBlocks(Graph& g)
+    {
+        // waiting for finishing the removal
+        while (RemoveEmptyBlocksOnce(g)) {}
+    }
+} // namespace pma::cfg::passes
+
+
 
 namespace pma::cfg {
 
@@ -15,8 +159,8 @@ cfg::Graph CFGBuilder::Build(const ast::Stmt& root)
     // std::cout << "CFGBuilder::Build start" << std::endl;
     g_ = {};
     
-    g_.exit = g_.NewBlock();
     g_.entry = g_.NewBlock();
+    g_.exit = g_.NewBlock();
 
     func_exit_ = g_.exit;
 
@@ -24,6 +168,8 @@ cfg::Graph CFGBuilder::Build(const ast::Stmt& root)
 
     concat(top.outs, g_.exit);
     // std::cout << "CFGBuilder::Build end" << std::endl;
+
+    passes::RemoveEmptyBlocks(g_);
     return g_;
 }
 
@@ -191,20 +337,21 @@ BuildOut CFGBuilder::build_for_each(const ast::ForStmt& s, std::vector<int> in_o
     const int after = new_block(); // after block for the end of cycle
     const int init  = new_block(); // initialization cycle block 
     const int next  = new_block(); // block for performing retrieving new iterator for the next loop iteration
+    const int next_cond = new_block();
 
     add_instr(init, "lable " + loop_label + ":"); // adding lable to the loop
-    add_instr(init, "seq = " + s.collection); // sequence initializaion instruction
-    add_instr(init, s.item + " = make_iterator(seq)"); // creating iterator instruction
-    edge(init, next, loop_label.empty() ? "for-in" : "for-in " + loop_label); // connecting init block with next block with loop label
+    add_instr(init, s.item + " = make_iterator(" + s.collection + ")"); // creating iterator instruction
+    // edge(init, next, loop_label.empty() ? "for-in" : "for-in " + loop_label); // connecting init block with next block with loop label
+    edge(init, next); // connecting init block with next block with loop label
 
+    add_instr(next_cond, s.item + " != nil "); // condition for continuing cycle
     add_instr(next, s.item + " = seq.next()"); // retrieving next iterator 
-    add_instr(next, "if " + s.item + " == nil "); // condition for continuing cycle
-    add_instr(next, loop_label.empty() ? "for-next" : "for-next " + loop_label); // adding loop label to the next block
+    // add_instr(next, loop_label.empty() ? "for-next" : "for-next " + loop_label); // adding loop label to the next block
 
     // if label isn't empty then mark after block with this lable
     if (!loop_label.empty())
     {
-        add_instr(after, "for-break " + loop_label);
+        // add_instr(after, "for-break " + loop_label);
     }
 
     // std::cout << "loop_lable=" << loop_label << std::endl;
@@ -213,8 +360,9 @@ BuildOut CFGBuilder::build_for_each(const ast::ForStmt& s, std::vector<int> in_o
 
     // building body of cycle
     BuildOut body = build_stmt(*s.body, {});
-    edge(next, body.entry, "true"); // connection for continuing cycle
-    edge(next, after,      "false"); // connection for stopping the cycle
+    edge(next, next_cond);
+    edge(next_cond, body.entry, "true"); // connection for continuing cycle
+    edge(next_cond, after,      "false"); // connection for stopping the cycle
     concat(body.outs, next); // connecting all cycle body outputs into next block
 
     loop_stack_.pop_back(); // deleting current cycle context from the cycle context
@@ -252,21 +400,40 @@ std::pair<int,int> CFGBuilder::resolve_loop_targets(const std::optional<std::str
 
 BuildOut CFGBuilder::build_break(const ast::BreakStmt& s, std::vector<int> in_outs) 
 {
+    #if 0
     int b = ensure_single_open(in_outs);
     auto [br, ct] = resolve_loop_targets(s.lable); // s.label: std::optional<std::string>
-    add_instr(b, s.has_lable ? ("break " + s.lable) : "break");
+    // add_instr(b, s.has_lable ? ("break " + s.lable) : "break");
     edge(b, br, "break");
     // seal(b);
     return { b, {} };
+    #else
+    int b = ensure_single_open(in_outs);
+    auto [br, ct] = resolve_loop_targets(s.lable);
+    edge(b, br, s.has_lable ? ("break " + s.lable) : "break");
+    // seal(b);
+    return { b, {} };
+
+    
+    #endif
 }
 
-BuildOut CFGBuilder::build_continue(const ast::ContinueStmt& s, std::vector<int> in_outs) {
+BuildOut CFGBuilder::build_continue(const ast::ContinueStmt& s, std::vector<int> in_outs) 
+{
+    #if 0
     int b = ensure_single_open(in_outs);
     auto [br, ct] = resolve_loop_targets(s.lable);
     add_instr(b, s.has_lable ? ("continue " + s.lable) : "continue");
     edge(b, ct, "continue");
     // seal(b);
     return { b, {} };
+    #else
+    int b = ensure_single_open(in_outs);
+    auto [br, ct] = resolve_loop_targets(s.lable);
+    edge(b, ct, s.has_lable ? ("continue " + s.lable) : "continue");
+    // seal(b);
+    return { b, {} };
+    #endif
 }
 
 BuildOut CFGBuilder::build_while(const ast::WhileStmt& s, std::vector<int> in_outs)
@@ -282,8 +449,8 @@ BuildOut CFGBuilder::build_while(const ast::WhileStmt& s, std::vector<int> in_ou
     // printing labels, conditions in blocks
     if (!loop_label.empty()) add_instr(cond,  "label " + loop_label + ":");
     add_instr(cond, s.cond); 
-    add_instr(cond, loop_label.empty() ? "while-cond" : "while-cond [" + loop_label + "]");
-    add_instr(after, loop_label.empty() ? "while-after" : "while-after [" + loop_label + "]");
+    // add_instr(cond, loop_label.empty() ? "while-cond" : "while-cond [" + loop_label + "]");
+    // add_instr(after, loop_label.empty() ? "while-after" : "while-after [" + loop_label + "]");
 
     // cycle context break/continue: continue -> cond, break -> after
     loop_stack_.push_back({ after, cond, loop_label });
@@ -316,9 +483,9 @@ BuildOut CFGBuilder::build_do_while(const ast::DoWhileStmt& s, std::vector<int> 
 
     // Printing labels, condition into their blocks
     if (!loop_label.empty()) add_instr(cond, "label " + loop_label + ":");
+    // add_instr(cond, loop_label.empty() ? "repeat-while-cond" : "repeat-while-cond [" + loop_label + "]");
     add_instr(cond, s.cond); 
-    add_instr(cond, loop_label.empty() ? "repeat-while-cond" : "repeat-while-cond [" + loop_label + "]");
-    add_instr(after, loop_label.empty() ? "repeat-after" : "repeat-after [" + loop_label + "]");
+    // add_instr(after, loop_label.empty() ? "repeat-after" : "repeat-after [" + loop_label + "]");
 
     // loop context: continue -> cond, break -> after
     loop_stack_.push_back({ after, cond, loop_label });
@@ -351,7 +518,7 @@ BuildOut CFGBuilder::build_switch(const ast::SwitchStmt& s, std::vector<int> in_
 
     if (!sw_label.empty()) add_instr(dispatch, "label " + sw_label + ":");
     // switch condition
-    add_instr(dispatch, "switch " + s.condition);
+    // add_instr(dispatch, "switch " + s.condition);
 
     // Pushin switch context onto the switch_stack_ for supporting labeled/unlabeled break
     switch_stack_.push_back({ after, std::nullopt, sw_label });
@@ -370,10 +537,10 @@ BuildOut CFGBuilder::build_switch(const ast::SwitchStmt& s, std::vector<int> in_
     {
         caseChk[i] = new_block();
 
-        std::string header = s.cases[i]->is_default ? "default" : ("case " + s.cases[i]->pattern);
+        std::string header = s.cases[i]->is_default ? "default" : (s.condition + " == " + s.cases[i]->pattern);
         if (s.cases[i]->guard != nullptr)
         {
-            header += " where " + s.cases[i]->guard->expr;
+            header += " and where " + s.cases[i]->guard->expr;
         }
         // std::cout << "header=" << header << std::endl;
         add_instr(caseChk[i], header); // adding condition header into caseChunk basic block
@@ -388,12 +555,12 @@ BuildOut CFGBuilder::build_switch(const ast::SwitchStmt& s, std::vector<int> in_
     for (size_t i = 0; i < N; ++i) 
     {
         // connecting match case into the case's body
-        edge(caseChk[i], bodies[i].entry, "match");
+        edge(caseChk[i], bodies[i].entry, "true");
 
         // connect no-match edge into the next caseChunk. Assume that default case will be last
         if (i + 1 < N) 
         {
-            edge(caseChk[i], caseChk[i + 1], "no-match");
+            edge(caseChk[i], caseChk[i + 1], "false ");
         }
         else 
         {
@@ -411,7 +578,7 @@ BuildOut CFGBuilder::build_switch(const ast::SwitchStmt& s, std::vector<int> in_
             if (i + 1 < N) 
             {
                 // fallthrough into the nect block
-                concat(bodies[i].outs, caseChk[i + 1]);
+                concat(bodies[i].outs, bodies[i+1].entry); // caseChk[i + 1]
             } else
             {
                 // connecting case's body into the after block
@@ -485,7 +652,7 @@ BuildOut CFGBuilder::build_return(const ast::ReturnStmt& s, std::vector<int> in_
 BuildOut CFGBuilder::build_fallthrough(const ast::FallthroughStmt& s, std::vector<int> in_outs)
 {
     int b = ensure_single_open(in_outs);
-    std::cout << "CFGBuilder::build_fallthrough cur_=" << b << "; expr=" << s.lable << std::endl;
+    // std::cout << "CFGBuilder::build_fallthrough cur_=" << b << "; expr=" << s.lable << std::endl;
     add_instr(b, "fallthrough");
     // std::cout << "CFGBuilder::build_expr end" << std::endl;
     return { b, { b } };

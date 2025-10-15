@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <regex>
 
 // tree-sitter api
 #include <tree_sitter/api.h>
@@ -19,6 +20,48 @@ extern "C" const TSLanguage *tree_sitter_swift();
 namespace pma::frontends::swift {
 
 namespace {
+
+std::string expand_ranges(const std::string& input) 
+{
+    std::regex range_regex(R"((\-?\d+)\.\.\.(\-?\d+))");
+    std::string result;
+    std::sregex_iterator it(input.begin(), input.end(), range_regex);
+    std::sregex_iterator end;
+
+    size_t last_pos = 0;
+    for (; it != end; ++it) 
+    {
+        const auto& match = *it;
+        int start = std::stoi(match[1]);
+        int endv  = std::stoi(match[2]);
+
+        result.append(input.substr(last_pos, match.position() - last_pos));
+
+        std::string expanded;
+        if (start <= endv) 
+        {
+            for (int i = start; i <= endv; ++i) 
+            {
+                if (!expanded.empty()) expanded += ",";
+                expanded += std::to_string(i);
+            }
+        } 
+        else
+        {
+            for (int i = start; i >= endv; --i) 
+            {
+                if (!expanded.empty()) expanded += ",";
+                expanded += std::to_string(i);
+            }
+        }
+
+        result.append(expanded);
+        last_pos = match.position() + match.length();
+    }
+
+    result.append(input.substr(last_pos));
+    return result;
+}
 
 // field names
 const char* statements_name = "statements";
@@ -195,7 +238,17 @@ std::unique_ptr<ast::ForStmt> build_for_in(TSNode n, const utils::SourceView& sv
     
     out->item           = std::string(text_of(sv, item));
     out->itemR          = rng(item);
-    out->collection     = std::string(text_of(sv, collection));
+
+    std::string collection_seq = expand_ranges(std::string(text_of(sv, collection)));
+
+    if (!collection_seq.empty())
+    {
+        out->collection = collection_seq;
+    }
+    else
+    {
+        out->collection     = std::string(text_of(sv, collection));
+    }
     out->collectionR    = rng(collection);
 
     for (auto child : named_children(n))
@@ -239,7 +292,15 @@ std::unique_ptr<ast::SwitchStmt> build_switch(TSNode n, const utils::SourceView&
                     // switch_pattern
                     if (sc->pattern.empty())
                     {
-                        sc->pattern = text_of(sv, entry_children);
+                        std::string extended = expand_ranges(std::string(text_of(sv, entry_children)));
+                        if (!extended.empty())
+                        {
+                            sc->pattern = extended;
+                        }
+                        else
+                        {
+                            sc->pattern = text_of(sv, entry_children);
+                        }
                     } 
                     else
                     {

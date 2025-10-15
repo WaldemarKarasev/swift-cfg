@@ -21,37 +21,48 @@ namespace pma
 
 int App::BuildCfg(int argc, char** argv)
 {
-
     std::string filename;
     std::string ast_filename;
     std::string dot_filename;
+    
+    #if 0
     std::cout << "argc=" << argc << std::endl;
-
     for (int i = 0; i < argc; ++i)
     {
         std::cout << "argc_" << i << ": " << argv[i] << std::endl;
     }
+    #endif
 
     if (argc > 3)
     {
         filename = argv[1];
-        ast_filename = argv[2];
-        dot_filename = argv[3];
+        dot_filename = argv[2];
+        ast_filename = argv[3];
     }
     else if (argc > 2)
     {
         filename = argv[1];
-        ast_filename = argv[2];
+        dot_filename = argv[2];
     }
     else if (argc > 1)
     {   
         filename = argv[1];
     }
-    else
+    
+    if (filename.empty())
     {
-        filename = "code_examples/if_else.swift";
-        ast_filename = "ast.json";
+        std::cout << "filename is empty!" << std::endl;
+        return -1;
+    }
+
+    if (dot_filename.empty())
+    {
         dot_filename = "cfg.dot";
+    }
+            
+    if (ast_filename.empty())
+    {
+        ast_filename = "ast.json";
     }
 
     return BuildCfg(filename, ast_filename, dot_filename);
@@ -78,7 +89,7 @@ int App::BuildCfg(std::string filename, std::string ast_filename, std::string do
     if (source.empty())
     {
         std::cout << "failed to read code from file:" << filename << std::endl;
-        return -1;
+        return -2;
     }
 
     std::cout << "[CODE START]:\n" << source << "\n [CODE END]" << std::endl;
@@ -94,7 +105,7 @@ int App::BuildCfg(std::string filename, std::string ast_filename, std::string do
     if (swift_front == nullptr) 
     {
         std::cout << "Swift-TreeSitter fronted wasn't found" << std::endl;
-        return -1;
+        return -3;
     }
 
     std::unique_ptr<ast::BlockStmt> ast = swift_front->BuildFromRoot(source_view, diag);
