@@ -25,3 +25,19 @@ add_executable(playground
   playground.cpp   
 )
 target_link_libraries(playground PRIVATE tree-sitter tree-sitter-swift)
+
+
+add_executable(code-metrics
+  diagnostic/diagnostic.cpp
+  frontend/registry.cpp
+  frontend/swift.cpp
+  printers/json_tree_serializer.cpp
+  code_metric.cpp
+  metric_app.cpp
+)
+target_link_libraries(code-metrics PRIVATE tree-sitter tree-sitter-swift nlohmann_json::nlohmann_json)
+target_include_directories(code-metrics PRIVATE
+  ${CMAKE_SOURCE_DIR}/vendor/tree-sitter/lib/include
+  ${SWIFT_GEN_DIR}/src
+  ${CMAKE_SOURCE_DIR}/src
+)

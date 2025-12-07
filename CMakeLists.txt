@@ -27,5 +27,6 @@ include(cmake/AddTreeSitterSwift.cmake)
 
 # move code examples into bin directory
 file(COPY code_examples DESTINATION ${OUTPUT_DIR})
+file(COPY oop_code_examples DESTINATION ${OUTPUT_DIR})
 
 add_subdirectory(src)

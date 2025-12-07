@@ -94,8 +94,26 @@ std::string KindToString(ast::Stmt::Kind kind)
     case Kind::SwitchCase:  return "SwitchCaseStmt";
     case Kind::Lable:       return "LableStmt";
     case Kind::Function:    return "Function";
+    case Kind::Class:       return "Class";
+    case Kind::VarDecl:     return "VarDecl";
+    case Kind::Identifier:  return "Identifier";
     default:
         break;
+    }
+    return "Unknown";
+}
+
+std::string EKindToString(ast::ExprBase::Kind kind)
+{
+    using Kind = ast::ExprBase::Kind;
+    switch (kind)
+    {
+        case Kind::Identifier:      return "Identifier";
+        case Kind::MemberAccess:    return "MemberAccess";
+        case Kind::Call:            return "Call";
+
+        default:
+        case Kind::Unknown:;
     }
     return "Unknown";
 }
@@ -166,12 +184,84 @@ static json_type JControlStmt(const ast::ControlStmt& ctrl_stmt)
     };
 }
 
-static json_type JExprStmt(const ast::ExprStmt& expr_stmt)
+// ---------- Expressions ----------
+static json_type JExprIdentifier(const ast::IdentifierExpr& ident_expr);
+static json_type JExprMemberAccess(const ast::MemberAccessExpr& member_expr);
+static json_type JExprCall(const ast::CallExpr& call_expr);
+
+static json_type JExprBase(const ast::ExprBase& base_expr)
+{
+    // std::cout << "JExprBase" << std::endl;
+    switch (base_expr.kind)
+    {
+    case ast::ExprBase::Identifier:
+        return JExprIdentifier(static_cast<const ast::IdentifierExpr&>(base_expr));
+    case ast::ExprBase::MemberAccess:
+        return JExprMemberAccess(static_cast<const ast::MemberAccessExpr&>(base_expr));
+    case ast::ExprBase::Call:
+        return JExprCall(static_cast<const ast::CallExpr&>(base_expr));
+        
+    default:
+    case ast::ExprBase::Unknown:;
+    }
+    
+    return json_type{
+        {"e_kind", EKindToString(base_expr.kind)},
+    };    
+}
+
+static json_type JExprIdentifier(const ast::IdentifierExpr& ident_expr)
 {
     return json_type{
-        {"kind", KindToString(expr_stmt.kind_)},
-        {"expr", expr_stmt.expr},
+        {"e_kind", EKindToString(ident_expr.kind)},
+        {"name", ident_expr.name}
     };
+}
+
+static json_type JExprMemberAccess(const ast::MemberAccessExpr& member_expr)
+{
+    return json_type{
+        {"e_kind", EKindToString(member_expr.kind)},
+        {"base", member_expr.base ? JExprBase(*member_expr.base) : json_type{nullptr}},
+        {"member_name", member_expr.member_name},
+    };
+}
+
+static json_type JExprCall(const ast::CallExpr& call_expr)
+{
+    json_type j_call;
+
+    // callee
+    j_call["e_kind"] = EKindToString(call_expr.kind);
+    j_call["callee"] = call_expr.callee ? JExprBase(*call_expr.callee) : json_type{nullptr};
+    
+    // args collection
+    json_type args = json_type::array();
+    for (const auto& arg : call_expr.args)
+    {
+        args.push_back(arg ? JExprBase(*arg) : json_type{nullptr});
+    }
+    j_call["args"] = std::move(args);
+
+    return j_call;
+}
+
+static json_type JExprStmt(const ast::ExprStmt& expr_stmt)
+{
+    json_type j_stmt = json_type{
+        {"kind", KindToString(expr_stmt.kind_)},
+    };
+
+    if (expr_stmt.expr == nullptr)
+    {
+        j_stmt["expr"] = expr_stmt.text;
+        return j_stmt;
+    }
+    
+    j_stmt["expr"] = JExprBase(*expr_stmt.expr);
+    j_stmt["text"] = expr_stmt.text;
+    
+    return j_stmt;
 }
 
 static std::string TermToString(ast::SwitchCaseStmt::Terminator term)
@@ -257,6 +347,41 @@ static json_type JFunctionDeclStmt(const ast::FunctionDeclStmt& func_stmt)
         {"kind", KindToString(func_stmt.kind_)},
         {"signature", JSignature(func_stmt.signature)},
         {"body", func_stmt.body ? JBlockStmt(*func_stmt.body) : json_type(nullptr)},
+        {"is_initializer", func_stmt.is_initializer},
+        {"is_deinitializer", func_stmt.is_deinitializer},
+        {"is_static", func_stmt.is_static},
+        {"is_override", func_stmt.is_override},
+    };
+}
+
+static json_type JClassDeclStmt(const ast::ClassDeclStmt& class_stmt)
+{
+    json_type j_class;
+    // name and base name of the class
+    j_class["kind"] = KindToString(class_stmt.kind_);
+    j_class["name"] = class_stmt.name;
+    j_class["base_name"] = class_stmt.base_class_name;
+
+    // collecting members
+    json_type members = json_type::array();
+    for (const auto& member : class_stmt.members)
+    {
+        members.push_back(member ? JStmt(*member) : json_type{nullptr});
+    }
+    j_class["members"] = std::move(members);
+
+    return j_class;
+}
+
+static json_type JVarDeclStmt(const ast::VarDeclStmt& vardecl_stmt)
+{
+    std::cout << "JVarDeclStmt" << std::endl;
+    return json_type{
+        {"kind" , KindToString(vardecl_stmt.kind_)},
+        {"name", vardecl_stmt.name},
+        {"type", vardecl_stmt.type_name},
+        {"init", vardecl_stmt.initializer ? JExprStmt(*vardecl_stmt.initializer) : json_type{nullptr}},
+        {"is_property", vardecl_stmt.is_property},
     };
 }
 
@@ -279,6 +404,8 @@ static json_type JStmt(const ast::Stmt& stmt)
     case Kind::SwitchCase:  return JSwitchCaseStmt(static_cast<const ast::SwitchCaseStmt&>(stmt));
     case Kind::Lable:       return JLableStmt(static_cast<const ast::LableStmt&>(stmt));
     case Kind::Function:    return JFunctionDeclStmt(static_cast<const ast::FunctionDeclStmt&>(stmt));
+    case Kind::Class:       return JClassDeclStmt(static_cast<const ast::ClassDeclStmt&>(stmt));
+    case Kind::VarDecl:     return JVarDeclStmt(static_cast<const ast::VarDeclStmt&>(stmt));
     default:
         break;
     }

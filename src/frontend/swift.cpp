@@ -85,6 +85,12 @@ const char* simple_identifier_name = "simple_identifier";
 const char* function_declaration_name = "function_declaration";
 const char* parameter_name = "parameter";
 
+// class labels
+const char* class_decl = "class_declaration";
+const char* inheritance_specifier = "inheritance_specifier";
+const char* init_decl = "init_declaration";
+const char* deinint_decl = "deinit_declaration";
+const char* property_decl = "property_declaration";
 inline TSNode field(TSNode n, const char* name) 
 {
     return ts_node_child_by_field_name(n, name, std::strlen(name));
@@ -322,9 +328,10 @@ std::unique_ptr<ast::SwitchStmt> build_switch(TSNode n, const utils::SourceView&
                     std::cout << "where expression detected. type: " << node_type(entry_children) << std::endl;
                     if (std::string(t).find("expression") != std::string::npos)
                     {
-                        sc->guard->expr = std::string(text_of(sv, entry_children));
-                        sc->guard->exprR = rng(entry_children);
-                        std::cout << "where expresiion: " << sc->guard->expr << std::endl;
+                        sc->guard->text = std::string(text_of(sv, entry_children));
+                        sc->guard->expr = std::make_unique<ast::UnknownExpr>();
+                        sc->guard->expr->range = rng(entry_children);
+                        std::cout << "where expresiion: " << sc->guard->text << std::endl;
                     }
                 }
 
@@ -445,13 +452,51 @@ std::unique_ptr<ast::LableStmt> build_lable(TSNode n, const utils::SourceView& s
 std::unique_ptr<ast::FunctionDeclStmt> build_func_decl(TSNode n, const utils::SourceView& sv) 
 {
     auto func = std::make_unique<ast::FunctionDeclStmt>();
-    for (auto child : named_children(n))
+    // if (node_type(n) == init_decl || node_type(n) == deinint_decl)
+    // {
+    //     func->signature.name = 
+    // }
+    std::cout << "func::node_type: " << node_type(n) << std::endl;
+    std::string sig_name;
+    utils::SourceRange sig_rng;
+    std::string modifiers;
+    for (uint32_t i = 0; i < ts_node_child_count(n); ++i)
     {
+        TSNode child = ts_node_child(n, i);
+        // std::cout << "~~~func_child::node_type: " << node_type(child) << std::endl;
         const auto t = node_type(child);
         if (t == simple_identifier_name)
         {
-            func->signature.name = text_of(sv, child);
-            func->signature.nameR = rng(child);
+            sig_name = text_of(sv, child);
+            sig_rng = rng(child);
+        }
+
+        if (t == "init")
+        {
+            sig_name = text_of(sv, child);
+            sig_rng = rng(child);
+            func->is_initializer = true;
+        }
+
+        if (t == "deinit")
+        {
+            sig_name = text_of(sv, child);
+            sig_rng = rng(child);
+            func->is_deinitializer = true;
+        }
+
+        if (t == "modifiers")
+        {
+            for (uint32_t j = 0; j < ts_node_child_count(child); ++j)
+            {        
+                // TODO: correct ranges addition
+                // std::cout << "modifier: " << node_type(ts_node_child(child, j)) << std::endl;
+                std::string text = std::string(text_of(sv, ts_node_child(child, j)));
+                if (text == "override") func->is_override = true;
+                modifiers.append(text + " ");
+            }
+            // std::cout << "collected modifiers: " << modifiers << std::endl;
+
         }
 
         if (t == parameter_name)
@@ -481,16 +526,17 @@ std::unique_ptr<ast::FunctionDeclStmt> build_func_decl(TSNode n, const utils::So
                             }
                         }
                     }
-
-                    
-
                 }
                 if (node_type(param_child) == "user_type")
                 {
                     param.type_name = text_of(sv, param_child);
                     param.type_nameR = rng(param_child);
                 }
-
+                if (node_type(param_child) == "optional_type")
+                {
+                    param.type_name = text_of(sv, param_child);
+                    param.type_nameR = rng(param_child);
+                }
             }
             func->signature.params.push_back(std::move(param));
         }
@@ -513,11 +559,137 @@ std::unique_ptr<ast::FunctionDeclStmt> build_func_decl(TSNode n, const utils::So
         }
     }
 
+    func->signature.name = sig_name;
+    func->signature.name = modifiers + func->signature.name;
+    func->signature.nameR = sig_rng;
     return func;
+}
+
+std::unique_ptr<ast::VarDeclStmt> build_vardecl(TSNode n, const utils::SourceView& sv)
+{
+    std::cout << "build_vardecl: " << node_type(n) << std::endl;
+    auto var_decl = std::make_unique<ast::VarDeclStmt>();
+
+    for (uint32_t i = 0; i < ts_node_child_count(n); ++i)
+    {
+        TSNode child = ts_node_child(n, i);
+        std::cout << "node_type: " << node_type(child) << " \"" << text_of(sv, child) << "\"" << std::endl;
+
+        if (node_type(child) == "pattern")
+        {
+            var_decl->name = text_of(sv, child);
+            var_decl->nameR = rng(child);
+        }
+        if (node_type(child) == "type_annotation")
+        {
+            TSNode user_type = field(child, "name");
+            if (!ts_node_is_null(user_type))
+            {
+                var_decl->name = text_of(sv, user_type);
+                var_decl->nameR = rng(user_type);
+            }
+            else
+            {
+                var_decl->name = text_of(sv, child);
+                var_decl->nameR = rng(child);
+            }
+        }
+    }
+
+    if (auto name = field(n, "value"); !ts_node_is_null(name))
+    {
+        auto init = std::make_unique<ast::ExprStmt>();
+        init->text = text_of(sv, name);
+        init->range = rng(name);
+        var_decl->initializer = std::move(init);
+    }
+    else
+    {
+        std::cout << "value is null" << std::endl;
+    }
+
+    return var_decl;
+}
+
+std::unique_ptr<ast::ClassDeclStmt> build_class_decl(TSNode n, const utils::SourceView& sv)
+{
+    std::cout << "class decl: nodetext: " << node_type(n) << std::endl; 
+
+    auto class_decl = std::make_unique<ast::ClassDeclStmt>();
+
+    if (auto name = field(n, "name"); !ts_node_is_null(name)) 
+    {
+        class_decl->name = text_of(sv, name);
+        class_decl->range = rng(name);
+        // std::cout << "name: " << text_of(sv, name) << ", type: " << node_type(name) << std::endl;
+    }
+
+    uint32_t count = ts_node_child_count(n);
+    for (uint32_t i = 0; i < count; ++i) 
+    {
+        TSNode child = ts_node_child(n, i);
+        if (node_type(child) == inheritance_specifier) 
+        {
+            class_decl->base_class_name = text_of(sv, child);
+            class_decl->base_class_nameR = rng(child);
+        }
+    }
+
+    if (auto body = field(n, "body"); !ts_node_is_null(body)) 
+    {
+        // class_decl->name = text_of(sv, body);
+        // class_decl->range = rng(name);
+        std::cout << "body: " << node_type(body) << ", type: " << node_type(body) << std::endl;
+
+        for (auto child : named_children(body))
+        {
+            std::cout << "type: " << node_type(child) << std::endl;
+            if (node_type(child) == init_decl ||
+                node_type(child) == deinint_decl ||
+                node_type(child) == function_declaration_name)
+            {
+                class_decl->members.push_back(build_func_decl(child, sv));
+            }
+
+            if (node_type(child) == property_decl)
+            {
+                class_decl->members.push_back(build_vardecl(child, sv));
+            }
+        }
+    }
+    return class_decl;
+}
+
+std::unique_ptr<ast::ExprStmt> build_expr_stmt(TSNode n, const utils::SourceView& sv)
+{
+    auto e = std::make_unique<ast::ExprStmt>();
+
+    if (node_type(n) == "assignment")
+    {
+        auto ident_expr = std::make_unique<ast::IdentifierExpr>();
+
+        TSNode ident = field(n, "target");
+        if (!ts_node_is_null(ident))
+        {
+            // ident-> 
+            // e->expr
+        }
+        else
+        {
+
+        }
+    }
+
+    e->text  = std::string(text_of(sv, n));
+    e->expr = std::make_unique<ast::ExprBase>(ast::ExprBase::Unknown);
+    e->expr->range = rng(n);
+    return e;
 }
 
 std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv) {
     const auto t = node_type(n);
+
+    std::cout << "build_stmt: " << node_type(n) << std::endl;
 
     if (t == statements_name)                   return build_block(n, sv);
     if (t == if_statement_name)                 return build_if(n, sv);
@@ -529,11 +701,11 @@ std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv) {
     if (t == control_transfer_statement_name)   return build_control_statement(n, sv);
     if (t == statement_label_name)              return build_lable(n, sv);
     if (t == function_declaration_name)         return build_func_decl(n, sv);
+    if (t == class_decl)                        return build_class_decl(n, sv);
+
+
     // As expresion by default
-    auto e = std::make_unique<ast::ExprStmt>();
-    e->expr  = std::string(text_of(sv, n));
-    e->exprR = rng(n);
-    return e;
+    return build_expr_stmt(n, sv);
 }
 
 } // namespace

@@ -288,7 +288,7 @@ BuildOut CFGBuilder::build_expr(const ast::ExprStmt& s, std::vector<int> in_outs
 {
     int b = ensure_single_open(in_outs);
     // std::cout << "CFGBuilder::build_expr cur_=" << b << "; expr=" << s.expr << std::endl;
-    add_instr(b, "expr: " + s.expr);
+    add_instr(b, "expr: " + s.text);
     // std::cout << "CFGBuilder::build_expr end" << std::endl;
     return { b, { b } };
 }
@@ -539,7 +539,7 @@ BuildOut CFGBuilder::build_switch(const ast::SwitchStmt& s, std::vector<int> in_
         std::string header = s.cases[i]->is_default ? "default" : (s.condition + " == " + s.cases[i]->pattern);
         if (s.cases[i]->guard != nullptr)
         {
-            header += " and where " + s.cases[i]->guard->expr;
+            header += " and where " + s.cases[i]->guard->text;
         }
         // std::cout << "header=" << header << std::endl;
         add_instr(caseChk[i], header); // adding condition header into caseChunk basic block
