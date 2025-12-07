@@ -342,12 +342,11 @@ BuildOut CFGBuilder::build_for_each(const ast::ForStmt& s, std::vector<int> in_o
     add_instr(init, "lable " + loop_label + ":"); // adding lable to the loop
     add_instr(init, s.item + " = make_iterator(" + s.collection + ")"); // creating iterator instruction
     // edge(init, next, loop_label.empty() ? "for-in" : "for-in " + loop_label); // connecting init block with next block with loop label
-    edge(init, next); // connecting init block with next block with loop label
+    edge(init, next_cond); // connecting init block with next block with loop label
 
     add_instr(next_cond, s.item + " != nil "); // condition for continuing cycle
-    add_instr(next, s.item + " = seq.next()"); // retrieving next iterator 
-    // add_instr(next, loop_label.empty() ? "for-next" : "for-next " + loop_label); // adding loop label to the next block
-
+    add_instr(next, s.item + " = " + s.item + ".next()"); // retrieving next iterator 
+    edge(next, next_cond);
     // if label isn't empty then mark after block with this lable
     if (!loop_label.empty())
     {

@@ -239,7 +239,7 @@ std::unique_ptr<ast::ForStmt> build_for_in(TSNode n, const utils::SourceView& sv
     out->item           = std::string(text_of(sv, item));
     out->itemR          = rng(item);
 
-    std::string collection_seq = expand_ranges(std::string(text_of(sv, collection)));
+    std::string collection_seq= {};// = expand_ranges(std::string(text_of(sv, collection)));
 
     if (!collection_seq.empty())
     {
@@ -292,7 +292,7 @@ std::unique_ptr<ast::SwitchStmt> build_switch(TSNode n, const utils::SourceView&
                     // switch_pattern
                     if (sc->pattern.empty())
                     {
-                        std::string extended = expand_ranges(std::string(text_of(sv, entry_children)));
+                        std::string extended = {};//expand_ranges(std::string(text_of(sv, entry_children)));
                         if (!extended.empty())
                         {
                             sc->pattern = extended;
