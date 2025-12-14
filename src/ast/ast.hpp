@@ -63,7 +63,8 @@ struct ExprBase
 
     Kind kind;
     utils::SourceRange range{};
-
+    std::string text;
+    
     ExprBase(Kind k) : kind(k) {}
     virtual ~ExprBase() = default;
 };

@@ -31,6 +31,8 @@ add_executable(code-metrics
   diagnostic/diagnostic.cpp
   frontend/registry.cpp
   frontend/swift.cpp
+  metric/builder.cpp
+  metric/ck_metric_calculator.cpp
   printers/json_tree_serializer.cpp
   code_metric.cpp
   metric_app.cpp

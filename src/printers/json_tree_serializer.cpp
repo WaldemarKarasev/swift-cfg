@@ -207,6 +207,7 @@ static json_type JExprBase(const ast::ExprBase& base_expr)
     
     return json_type{
         {"e_kind", EKindToString(base_expr.kind)},
+        {"text", base_expr.text},
     };    
 }
 
@@ -420,6 +421,151 @@ void JsonTreeSerializer::Print(const ast::Stmt& root)
 void JsonTreeSerializer::Print(std::ostream& os, const ast::Stmt& root)
 {
     os << JStmt(root).dump(2) << std::endl;
+}
+
+
+// oo_model serialization 
+template <class T>
+std::vector<T> to_sorted_vector(const std::unordered_set<T>& s) {
+    std::vector<T> v;
+    v.reserve(s.size());
+    for (const auto& x : s) v.push_back(x);
+    std::sort(v.begin(), v.end());
+    return v;
+}
+
+std::vector<std::string> to_sorted_vector(std::vector<std::string> v) {
+    std::sort(v.begin(), v.end());
+    v.erase(std::unique(v.begin(), v.end()), v.end());
+    return v;
+}
+
+json_type field_to_json(const pma::metric::FieldInfo& f) {
+    json_type j;
+    j["name"] = f.name;
+    j["type"] = f.type;
+    return j;
+}
+
+json_type param_to_json(const pma::metric::ParamInfo& p) {
+    json_type j;
+    j["external_name"] = p.external_name;
+    j["local_name"] = p.local_name;
+    j["type"] = p.type;
+    return j;
+}
+
+json_type method_to_json(const pma::metric::MethodInfo& m) {
+    json_type j;
+    j["name"] = m.name;
+    j["isInit"] = m.isInit;
+    j["isDeinit"] = m.isDeinit;
+
+    // params
+    {
+        json_type params = json_type::array();
+        for (const auto& p : m.params)
+        {
+            params.push_back(param_to_json(p));
+        }
+        j["params"] = std::move(params);
+    }
+
+    j["returnType"] = m.returnType;
+
+    // sets (sorted for stable output)
+    j["usedFields"] = to_sorted_vector(m.usedFields);
+    j["calledMethods"] = to_sorted_vector(m.calledMethods);
+    j["referencedTypes"] = to_sorted_vector(m.referencedTypes);
+
+    return j;
+}
+
+json_type class_to_json(const pma::metric::ClassInfo& c) {
+    json_type j;
+    j["name"] = c.name;
+    j["base"] = c.base;
+
+    // fields
+    {
+        json_type fields = json_type::array();
+        for (const auto& f : c.fields) 
+        {
+            fields.push_back(field_to_json(f));
+        }
+        j["fields"] = std::move(fields);
+    }
+
+    // methods
+    {
+        json_type methods = json_type::array();
+        
+        for (const auto& m : c.methods) 
+        {
+            methods.push_back(method_to_json(m));
+        }
+        j["methods"] = std::move(methods);
+    }
+
+    // children (sorted, unique)
+    j["children"] = to_sorted_vector(c.children);
+
+    return j;
+}
+
+void JsonTreeSerializer::Print(std::ostream& os, const metric::OOModel& model) 
+{
+    json_type root;
+
+    // classes: stable ordering by class name
+    std::vector<std::string> classNames;
+    classNames.reserve(model.classes.size());
+    for (const auto& [name, _] : model.classes) classNames.push_back(name);
+    std::sort(classNames.begin(), classNames.end());
+
+    json_type classes = json_type::array();
+
+    for (const auto& name : classNames) 
+    {
+        auto it = model.classes.find(name);
+        if (it == model.classes.end()) continue;
+
+        // serializing ClassInfo
+        classes.push_back(class_to_json(it->second));
+    }
+
+    root["classes"] = std::move(classes);
+
+    // pretty print
+    os << root.dump(2);
+}
+
+json_type JMetric(const metric::CKMetric& metric)
+{
+    return json_type{
+        {"wmc", metric.wmc},
+        {"dit", metric.dit},
+        {"noc", metric.noc},
+        {"cbo", metric.cbo},
+        {"rfc", metric.rfc},
+        {"lcom", metric.lcom},
+        
+    };
+}
+
+void JsonTreeSerializer::Print(std::ostream& os, const std::unordered_map<std::string, metric::CKMetric>& metrics)
+{
+    json_type j_metrics = json_type::array();
+
+    for (const auto& [name, metric] : metrics)
+    {
+        json_type j_metric;
+        j_metric[name] = JMetric(metric);
+
+        j_metrics.push_back(std::move(j_metric));
+    }
+
+    os << j_metrics.dump(2);
 }
 
 } // namespace pma::printers

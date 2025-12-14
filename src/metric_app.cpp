@@ -9,6 +9,8 @@
 #include <ast/ast.hpp>
 #include <printers/dot_printer.hpp>
 #include <printers/json_tree_serializer.hpp>
+#include <metric/builder.hpp>
+#include <metric/ck_metric_calculator.hpp>
 
 namespace pma
 {
@@ -119,8 +121,41 @@ int MetricApp::Count(std::string source_filename, std::string ast_filename, std:
         }
     }
 
-    // Coun metrics
-    
+    // Count metrics
+    metric::OOModel model = metric::OOModelBuilder{}.Build(*ast);
+
+    // serializing oo_model
+    {
+        std::string model_filename = "model.json";
+        std::ofstream model_file(model_filename);
+        if (model_file.is_open())
+        {
+            serializer.Print(model_file, model);
+        }
+        else
+        {
+            std::cout << "Cannot open file: " << model_filename << std::endl;
+        }
+    }
+
+    metric::CKMetricsCalculator calc{{true, true}};
+
+    auto metrics = calc.Count(model);
+
+    // serializing metrics
+    {
+        std::string model_filename = "metrics.json";
+        std::ofstream model_file(model_filename);
+        if (model_file.is_open())
+        {
+            serializer.Print(model_file, metrics);
+        }
+        else
+        {
+            std::cout << "Cannot open file: " << model_filename << std::endl;
+        }
+    }
+
     return 0;
 }
 

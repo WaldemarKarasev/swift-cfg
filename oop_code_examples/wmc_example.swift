@@ -4,10 +4,14 @@ class WMCExample: UIViewController {
     var value: Int
     var label: String
     var tag: String = "example"
+    var data: Data = Data()
 
     init(value: Int, label: String) {
         self.value = value
         self.label = label
+        foo(label)
+        doo(self.label)
+        let l = Data()
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -58,4 +62,25 @@ class WMCExample: UIViewController {
 
     deinit {
     }
+}
+
+
+class FirstChild : WMCExample {
+    var data: String = "line"
+}
+
+class SecondChild : WMCExample {
+    var data: String = "line"
+    func test_func() {
+        
+    }
+}
+
+class ThirdChild : SecondChild {
+    var data: String = "line"
+
+    func foo() {
+        value = 0
+    }
+
 }

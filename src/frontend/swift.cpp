@@ -117,6 +117,17 @@ inline std::string_view text_of(const utils::SourceView& sv, TSNode n)
     return sv.slice(rng(n));
 }
 
+inline std::vector<TSNode> children(TSNode n)
+{
+    std::vector<TSNode> children;
+    uint32_t count = ts_node_child_count(n);
+    for (uint32_t i = 0; i < count; ++i) 
+    {
+        children.push_back(ts_node_child(n, i));
+    }
+    return children;
+}
+
 inline std::vector<TSNode> named_children(TSNode n) 
 {
     std::vector<TSNode> out;
@@ -317,7 +328,7 @@ std::unique_ptr<ast::SwitchStmt> build_switch(TSNode n, const utils::SourceView&
 
                 if (t == where_keyword_name)
                 {
-                    std::cout << "where caught. text: " << std::endl;
+                    // std::cout << "where caught. text: " << std::endl;
                     // where stmt
                     auto guard = std::make_unique<ast::ExprStmt>();
                     sc->guard = std::move(guard);
@@ -325,13 +336,13 @@ std::unique_ptr<ast::SwitchStmt> build_switch(TSNode n, const utils::SourceView&
 
                 if (sc->guard != nullptr && t != where_keyword_name)
                 {
-                    std::cout << "where expression detected. type: " << node_type(entry_children) << std::endl;
+                    // std::cout << "where expression detected. type: " << node_type(entry_children) << std::endl;
                     if (std::string(t).find("expression") != std::string::npos)
                     {
                         sc->guard->text = std::string(text_of(sv, entry_children));
                         sc->guard->expr = std::make_unique<ast::UnknownExpr>();
                         sc->guard->expr->range = rng(entry_children);
-                        std::cout << "where expresiion: " << sc->guard->text << std::endl;
+                        // std::cout << "where expresiion: " << sc->guard->text << std::endl;
                     }
                 }
 
@@ -389,7 +400,7 @@ std::unique_ptr<ast::Stmt> build_control_statement(TSNode n, const utils::Source
         {
             lable = text_of(sv, node);
             lableR = rng(node);
-            std::cout << "ast lable=" << lable << std::endl;
+            // std::cout << "ast lable=" << lable << std::endl;
 
         }
         // if (node_type(child) == simple_identifier_name)
@@ -444,7 +455,7 @@ std::unique_ptr<ast::LableStmt> build_lable(TSNode n, const utils::SourceView& s
     
     lable->lable = trim(std::string(text_of(sv, n)));
     lable->lableR = rng(n);
-    std::cout << "ast lable.lable=" << lable->lable << std::endl;
+    // std::cout << "ast lable.lable=" << lable->lable << std::endl;
 
     return lable;
 }
@@ -565,6 +576,8 @@ std::unique_ptr<ast::FunctionDeclStmt> build_func_decl(TSNode n, const utils::So
     return func;
 }
 
+std::unique_ptr<ast::ExprStmt> build_expr_stmt(TSNode n, const utils::SourceView& sv);
+
 std::unique_ptr<ast::VarDeclStmt> build_vardecl(TSNode n, const utils::SourceView& sv)
 {
     std::cout << "build_vardecl: " << node_type(n) << std::endl;
@@ -573,7 +586,7 @@ std::unique_ptr<ast::VarDeclStmt> build_vardecl(TSNode n, const utils::SourceVie
     for (uint32_t i = 0; i < ts_node_child_count(n); ++i)
     {
         TSNode child = ts_node_child(n, i);
-        std::cout << "node_type: " << node_type(child) << " \"" << text_of(sv, child) << "\"" << std::endl;
+        // std::cout << "node_type: " << node_type(child) << " \"" << text_of(sv, child) << "\"" << std::endl;
 
         if (node_type(child) == "pattern")
         {
@@ -585,27 +598,24 @@ std::unique_ptr<ast::VarDeclStmt> build_vardecl(TSNode n, const utils::SourceVie
             TSNode user_type = field(child, "name");
             if (!ts_node_is_null(user_type))
             {
-                var_decl->name = text_of(sv, user_type);
-                var_decl->nameR = rng(user_type);
+                var_decl->type_name = text_of(sv, user_type);
+                var_decl->type_nameR = rng(user_type);
             }
             else
             {
-                var_decl->name = text_of(sv, child);
-                var_decl->nameR = rng(child);
+                var_decl->type_name = text_of(sv, child);
+                var_decl->type_nameR = rng(child);
             }
         }
     }
 
     if (auto name = field(n, "value"); !ts_node_is_null(name))
     {
-        auto init = std::make_unique<ast::ExprStmt>();
-        init->text = text_of(sv, name);
-        init->range = rng(name);
-        var_decl->initializer = std::move(init);
-    }
-    else
-    {
-        std::cout << "value is null" << std::endl;
+        var_decl->initializer = build_expr_stmt(name, sv);
+        // auto init = std::make_unique<ast::ExprStmt>();
+        // init->text = text_of(sv, name);
+        // init->range = rng(name);
+        // var_decl->initializer = std::move(init);
     }
 
     return var_decl;
@@ -653,40 +663,209 @@ std::unique_ptr<ast::ClassDeclStmt> build_class_decl(TSNode n, const utils::Sour
 
             if (node_type(child) == property_decl)
             {
-                class_decl->members.push_back(build_vardecl(child, sv));
+                auto var_decl = build_vardecl(child, sv);
+                var_decl->is_property = true;
+                class_decl->members.push_back(std::move(var_decl));
+
             }
         }
     }
     return class_decl;
 }
 
-std::unique_ptr<ast::ExprStmt> build_expr_stmt(TSNode n, const utils::SourceView& sv)
+std::unique_ptr<ast::ExprBase> build_expr(TSNode n, const utils::SourceView& sv);
+std::unique_ptr<ast::ExprBase> build_call_expr(TSNode n, const utils::SourceView& sv);
+std::unique_ptr<ast::ExprBase> build_member_access_expr(TSNode n, const utils::SourceView& sv);
+
+std::unique_ptr<ast::ExprBase> build_identifier_expr(TSNode n, const utils::SourceView& sv)
 {
-    auto e = std::make_unique<ast::ExprStmt>();
+    auto ident = std::make_unique<ast::IdentifierExpr>();
+    ident->name = text_of(sv, n);
+    ident->nameR = rng(n);
+    return ident;
+}
 
-    if (node_type(n) == "assignment")
+std::unique_ptr<ast::ExprBase> build_member_access_expr(TSNode n, const utils::SourceView& sv)
+{
+    auto member_expr = std::make_unique<ast::MemberAccessExpr>();
+
+    if (TSNode target = field(n, "target"); !ts_node_is_null(target))
     {
-        auto ident_expr = std::make_unique<ast::IdentifierExpr>();
-
-        TSNode ident = field(n, "target");
-        if (!ts_node_is_null(ident))
+        if (node_type(target) == "self_expression")
         {
-            // ident-> 
-            // e->expr
+            member_expr->base = build_identifier_expr(target, sv);
+
+        }
+        if (node_type(target) == "super_expression")
+        {
+            member_expr->base = build_identifier_expr(target, sv);
+
+        }
+        if (member_expr == nullptr)
+        {
+            for (auto& child : children(target))
+            {
+                if (node_type(child) == "self_expression")
+                {
+                    member_expr->base = build_identifier_expr(child, sv);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (TSNode suffix = field(n, "suffix"); !ts_node_is_null(suffix))
+    {
+        if (node_type(suffix) == "navigation_suffix")
+        {
+            for (auto& child : children(suffix))
+            {
+                if (node_type(child) == simple_identifier_name)
+                {
+                    member_expr->member_name = text_of(sv, child);
+                    member_expr->member_nameR = rng(child);
+                    break;
+                }
+            }
         }
         else
         {
+            member_expr->member_name = text_of(sv, suffix);
+            member_expr->member_nameR = rng(suffix);
+        }
+    }
+
+    return member_expr;
+}
+
+std::vector<std::unique_ptr<ast::ExprBase>> build_call_suffix_args(TSNode call_suffix, const utils::SourceView& sv)
+{
+    std::vector<std::unique_ptr<ast::ExprBase>> args;
+
+    TSNode arguments;
+    for (auto& child : children(call_suffix))
+    {
+        if (node_type(child) == "value_arguments")
+        {
+            arguments = child;
+        }
+    }
+
+    if (not ts_node_is_null(arguments))
+    {
+        for (auto& arg : children(arguments))
+        {
+            if (TSNode value = field(arg, "value"); !ts_node_is_null(value))
+            {
+                args.push_back(build_expr(value, sv));
+            }
 
         }
     }
 
-    e->text  = std::string(text_of(sv, n));
-    e->expr = std::make_unique<ast::ExprBase>(ast::ExprBase::Unknown);
-    e->expr->range = rng(n);
+    return args;
+}
+
+
+std::unique_ptr<ast::ExprBase> build_call_expr(TSNode n, const utils::SourceView& sv)
+{
+    auto call_expr = std::make_unique<ast::CallExpr>();
+
+    for (auto& child : children(n))
+    {
+        if (node_type(child) == "navigation_expression")
+        {
+            call_expr->callee = build_member_access_expr(child, sv);
+        }
+        if (node_type(child) == simple_identifier_name)
+        {
+            call_expr->callee = build_identifier_expr(child, sv);
+        }
+        if (node_type(child) == "call_suffix")
+        {
+            call_expr->args = build_call_suffix_args(child, sv);
+        }
+    }
+
+    return call_expr;
+}
+
+
+std::unique_ptr<ast::ExprBase> build_expr(TSNode n, const utils::SourceView& sv)
+{
+    std::unique_ptr<ast::ExprBase> expr;
+
+    if (node_type(n) == "assignment")
+    {
+        if (TSNode target = field(n, "target"); !ts_node_is_null(target))
+        {
+            for (auto& child : children(target))
+            {
+                if (node_type(child) == "navigation_expression")
+                {
+                    expr = build_member_access_expr(child, sv);
+                }
+                if (node_type(child) == "simple_identifier")
+                {
+                    expr = build_identifier_expr(child, sv);
+                }
+            }
+        }
+    }
+    else if (node_type(n) == "call_expression")
+    {
+        expr = build_call_expr(n, sv);
+    }
+    else if (node_type(n) == "simple_identifier")
+    {
+        expr = build_identifier_expr(n, sv);
+    } 
+    else if (node_type(n) == "navigation_expression")
+    {
+        expr = build_member_access_expr(n, sv);
+    }
+    else if (node_type(n) == property_decl)
+    {
+        // std::cout << "here" << std::endl;
+        auto var_decl = build_vardecl(n, sv);
+        if (var_decl != nullptr && 
+            var_decl->initializer != nullptr && 
+            var_decl->initializer->expr != nullptr)
+        {
+            expr = std::move(var_decl->initializer->expr);
+            // expr->text = var_decl->initializer->expr->text;
+        }
+        else
+        {
+            // default
+            expr = std::make_unique<ast::ExprBase>(ast::ExprBase::Unknown);
+            expr->range = rng(n);
+            expr->text = text_of(sv, n);
+        }
+    }
+    else
+    {
+        // default
+        expr = std::make_unique<ast::ExprBase>(ast::ExprBase::Unknown);
+        expr->range = rng(n);
+        expr->text = text_of(sv, n);
+    }
+
+    return expr;
+}
+
+std::unique_ptr<ast::ExprStmt> build_expr_stmt(TSNode n, const utils::SourceView& sv)
+{
+    auto e = std::make_unique<ast::ExprStmt>();
+
+    e->expr = build_expr(n, sv);
+
+    e->text = std::string(text_of(sv, n));
     return e;
 }
 
-std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv) {
+std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv) 
+{
     const auto t = node_type(n);
 
     std::cout << "build_stmt: " << node_type(n) << std::endl;
