@@ -10,12 +10,18 @@ namespace pma::metric {
 
 struct CKMetric
 {
-    int wmc = 0;
-    int dit = 0;
-    int noc = 0;
-    int cbo = 0;
-    int rfc = 0;
-    int lcom = 0;
+    float wmc = 0;
+    float dit = 0;
+    float noc = 0;
+    float cbo = 0;
+    float rfc = 0;
+    float lcom = 0;
+};
+
+struct AllMetrics
+{
+    CKMetric average;
+    std::unordered_map<std::string, CKMetric> metrics;
 };
 
 // Chidamber & Kemerer - CK metrics
@@ -50,7 +56,7 @@ public:
     explicit CKMetricsCalculator(Config cfg) : cfg_(cfg) {}
 
     // calculation all metrics
-    std::unordered_map<std::string, Metric> Count(const OOModel& model);
+    AllMetrics Count(const OOModel& model);
 
     // WMC
     std::unordered_map<std::string, int> ComputeWMC(const OOModel& model) const;

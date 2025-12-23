@@ -67,9 +67,14 @@ int MetricApp::Count(int argc, char** argv)
 
 int MetricApp::Count(std::string source_filename, std::string ast_filename, std::string metric_filename)
 {
-    std::cout << "filename: " << source_filename << std::endl;
-    std::cout << "ast_filename: " << ast_filename << std::endl;
-    std::cout << "dot_filename: " << metric_filename << std::endl;
+    std::string data_dir = "data";
+    if (not std::filesystem::exists(data_dir))
+    {
+        std::filesystem::create_directories(data_dir);
+    }
+    std::cout << "src file:\t" << source_filename << std::endl;
+    // std::cout << "ast file:\t" << data_dir + "/" + ast_filename << std::endl;
+    std::cout << "metric file:\t" << data_dir + "/" + metric_filename << std::endl;
 
     std::string source;
     std::ifstream file(source_filename);
@@ -82,7 +87,7 @@ int MetricApp::Count(std::string source_filename, std::string ast_filename, std:
         }
     }
 
-    std::cout << "CODE FILENAME: " << source_filename << std::endl;
+    // std::cout << "CODE FILENAME: " << source_filename << std::endl;
     if (source.empty())
     {
         std::cout << "failed to read code from file:" << source_filename << std::endl;
@@ -107,10 +112,11 @@ int MetricApp::Count(std::string source_filename, std::string ast_filename, std:
 
     std::unique_ptr<ast::BlockStmt> ast = swift_front->BuildFromRoot(source_view, diag);
 
+
     printers::JsonTreeSerializer serializer;
     // serializer.Print(std::cout, *ast);
     {
-        std::ofstream ast_file(ast_filename);
+        std::ofstream ast_file(data_dir + "/" + ast_filename);
         if (ast_file.is_open())
         {
             serializer.Print(ast_file, *ast);
@@ -127,7 +133,7 @@ int MetricApp::Count(std::string source_filename, std::string ast_filename, std:
     // serializing oo_model
     {
         std::string model_filename = "model.json";
-        std::ofstream model_file(model_filename);
+        std::ofstream model_file(data_dir + "/" + model_filename);
         if (model_file.is_open())
         {
             serializer.Print(model_file, model);
@@ -145,7 +151,7 @@ int MetricApp::Count(std::string source_filename, std::string ast_filename, std:
     // serializing metrics
     {
         std::string model_filename = "metrics.json";
-        std::ofstream model_file(model_filename);
+        std::ofstream model_file(data_dir + "/" + model_filename);
         if (model_file.is_open())
         {
             serializer.Print(model_file, metrics);

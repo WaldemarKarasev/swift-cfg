@@ -467,7 +467,7 @@ std::unique_ptr<ast::FunctionDeclStmt> build_func_decl(TSNode n, const utils::So
     // {
     //     func->signature.name = 
     // }
-    std::cout << "func::node_type: " << node_type(n) << std::endl;
+    // std::cout << "func::node_type: " << node_type(n) << std::endl;
     std::string sig_name;
     utils::SourceRange sig_rng;
     std::string modifiers;
@@ -580,7 +580,7 @@ std::unique_ptr<ast::ExprStmt> build_expr_stmt(TSNode n, const utils::SourceView
 
 std::unique_ptr<ast::VarDeclStmt> build_vardecl(TSNode n, const utils::SourceView& sv)
 {
-    std::cout << "build_vardecl: " << node_type(n) << std::endl;
+    // std::cout << "build_vardecl: " << node_type(n) << std::endl;
     auto var_decl = std::make_unique<ast::VarDeclStmt>();
 
     for (uint32_t i = 0; i < ts_node_child_count(n); ++i)
@@ -623,7 +623,7 @@ std::unique_ptr<ast::VarDeclStmt> build_vardecl(TSNode n, const utils::SourceVie
 
 std::unique_ptr<ast::ClassDeclStmt> build_class_decl(TSNode n, const utils::SourceView& sv)
 {
-    std::cout << "class decl: nodetext: " << node_type(n) << std::endl; 
+    // std::cout << "class decl: nodetext: " << node_type(n) << std::endl; 
 
     auto class_decl = std::make_unique<ast::ClassDeclStmt>();
 
@@ -649,11 +649,11 @@ std::unique_ptr<ast::ClassDeclStmt> build_class_decl(TSNode n, const utils::Sour
     {
         // class_decl->name = text_of(sv, body);
         // class_decl->range = rng(name);
-        std::cout << "body: " << node_type(body) << ", type: " << node_type(body) << std::endl;
+        // std::cout << "body: " << node_type(body) << ", type: " << node_type(body) << std::endl;
 
         for (auto child : named_children(body))
         {
-            std::cout << "type: " << node_type(child) << std::endl;
+            // std::cout << "type: " << node_type(child) << std::endl;
             if (node_type(child) == init_decl ||
                 node_type(child) == deinint_decl ||
                 node_type(child) == function_declaration_name)
@@ -868,7 +868,7 @@ std::unique_ptr<ast::Stmt> build_stmt(TSNode n, const utils::SourceView& sv)
 {
     const auto t = node_type(n);
 
-    std::cout << "build_stmt: " << node_type(n) << std::endl;
+    // std::cout << "build_stmt: " << node_type(n) << std::endl;
 
     if (t == statements_name)                   return build_block(n, sv);
     if (t == if_statement_name)                 return build_if(n, sv);

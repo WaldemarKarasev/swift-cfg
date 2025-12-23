@@ -40,10 +40,12 @@ int main(int argc, char** argv)
 {
     #if 1
 
+    #if 0
     for (int i = 0; i < argc; ++i)
     {
         std::cout << argv[i] << std::endl;
     }
+    #endif
 
     pma::MetricApp app;
     return app.Count(argc, argv);

@@ -474,7 +474,7 @@ json_type method_to_json(const pma::metric::MethodInfo& m) {
     j["returnType"] = m.returnType;
 
     // sets (sorted for stable output)
-    std::cout << m.usedFields.size() << " " << m.calledMethods.size() << " " << m.referencedTypes.size() << std::endl;
+    // std::cout << m.usedFields.size() << " " << m.calledMethods.size() << " " << m.referencedTypes.size() << std::endl;
     j["usedFields"] = to_sorted_vector(m.usedFields);
     j["calledMethods"] = to_sorted_vector(m.calledMethods);
     j["referencedTypes"] = to_sorted_vector(m.referencedTypes);
@@ -554,19 +554,24 @@ json_type JMetric(const metric::CKMetric& metric)
     };
 }
 
-void JsonTreeSerializer::Print(std::ostream& os, const std::unordered_map<std::string, metric::CKMetric>& metrics)
+void JsonTreeSerializer::Print(std::ostream& os, const metric::AllMetrics& metrics)
 {
+    json_type j_all_metrics;
+    j_all_metrics["CK_AVERAGE"] = JMetric(metrics.average);
+
     json_type j_metrics = json_type::array();
 
-    for (const auto& [name, metric] : metrics)
+    for (const auto& [name, metric] : metrics.metrics)
     {
         json_type j_metric;
         j_metric[name] = JMetric(metric);
 
         j_metrics.push_back(std::move(j_metric));
     }
+    j_all_metrics["classes"] = std::move(j_metrics);
 
-    os << j_metrics.dump(2);
+
+    os << j_all_metrics.dump(2);
 }
 
 } // namespace pma::printers

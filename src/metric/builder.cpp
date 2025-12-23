@@ -353,7 +353,7 @@ void OOModelBuilder::CollectReferencedTypesFromExpr(MethodInfo& mi, const ast::E
 
 void OOModelBuilder::CollectReferencedTypesFromText(MethodInfo& mi, const std::string& text)
 {
-    std::cout << "CollectReferencedTypesFromText text: " << text << std::endl;
+    // std::cout << "CollectReferencedTypesFromText text: " << text << std::endl;
     if (text.empty()) return;
 
     // Identifier should started with high register
@@ -442,7 +442,7 @@ void OOModelBuilder::CollectCalledMethodsFromExpr(MethodInfo& mi, const ast::Exp
 
 void OOModelBuilder::CollectCalledMethodsFromText(MethodInfo& mi, const std::string& text)
 {
-    std::cout << "CollectCalledMethodsFromText text: " << text << std::endl;
+    // std::cout << "CollectCalledMethodsFromText text: " << text << std::endl;
     if (text.empty()) return;
 
     // Examples:
@@ -528,7 +528,7 @@ void OOModelBuilder::CollectUsedFieldsFromExpr(MethodInfo& mi,
 
 void OOModelBuilder::CollectUsedFieldsFromText(MethodInfo& mi, const std::string& text, const ClassInfo& owner)
 {
-    std::cout << "CollectUsedFieldsFromText text: " << text << std::endl;
+    // std::cout << "CollectUsedFieldsFromText text: " << text << std::endl;
     if (text.empty()) return;
 
     // self.field

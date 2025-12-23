@@ -255,8 +255,9 @@ int CKMetricsCalculator::ComputeWMCFor(const OOModel& model,
 }
 
 // calculation all metrics
-std::unordered_map<std::string, CKMetricsCalculator::Metric> CKMetricsCalculator::Count(const OOModel& model)
+AllMetrics CKMetricsCalculator::Count(const OOModel& model)
 {
+    AllMetrics all_metrics;
     std::unordered_map<std::string, CKMetricsCalculator::Metric> metrics;
 
     auto wmc_metric  = ComputeWMC(model);
@@ -266,6 +267,12 @@ std::unordered_map<std::string, CKMetricsCalculator::Metric> CKMetricsCalculator
     auto rfc_metric  = ComputeRFC(model);
     auto lcom_metric = ComputeLCOM(model);
 
+    int all_wmc_metric = 0;
+    int all_dit_metric = 0;
+    int all_noc_metric = 0;
+    int all_cbo_metric = 0;
+    int all_rfc_metric = 0;
+    int all_lcom_metric = 0;
 
     for (const auto& [name, _] : model.classes)
     {
@@ -273,37 +280,54 @@ std::unordered_map<std::string, CKMetricsCalculator::Metric> CKMetricsCalculator
         if (wmc_metric.contains(name))
         {
             metric.wmc = wmc_metric.at(name);
+            all_wmc_metric += wmc_metric.at(name);
         }
 
         if (dit_metric.contains(name))
         {
             metric.dit = dit_metric.at(name);
+            all_dit_metric += dit_metric.at(name);
         }
 
         if (noc_metric.contains(name))
         {
             metric.noc = noc_metric.at(name);
+            all_noc_metric += noc_metric.at(name);
         }
 
         if (cbo_metric.contains(name))
         {
             metric.cbo = cbo_metric.at(name);
+            all_cbo_metric += cbo_metric.at(name);
         }
 
         if (rfc_metric.contains(name))
         {
             metric.rfc = rfc_metric.at(name);
+            all_rfc_metric += rfc_metric.at(name);
         }
 
         if (lcom_metric.contains(name))
         {
             metric.lcom = lcom_metric.at(name);
+            all_lcom_metric += lcom_metric.at(name);
         }
 
         metrics.insert({name, std::move(metric)});
     }
 
-    return metrics;
+    Metric average;
+    average.wmc  = static_cast<float>(all_wmc_metric) / metrics.size();
+    average.dit  = static_cast<float>(all_dit_metric) / metrics.size();
+    average.noc  = static_cast<float>(all_noc_metric) / metrics.size();
+    average.cbo  = static_cast<float>(all_cbo_metric) / metrics.size();
+    average.rfc  = static_cast<float>(all_rfc_metric) / metrics.size();
+    average.lcom = static_cast<float>(all_lcom_metric) / metrics.size();
+
+    all_metrics.average = std::move(average);
+    all_metrics.metrics = std::move(metrics);
+
+    return all_metrics;
 }
 
 // WMC
@@ -392,7 +416,7 @@ std::unordered_map<std::string, int> CKMetricsCalculator::ComputeCBO(const OOMod
         (void)ComputeCBOTypeSetFor(model, name, cache);
     }
 
-    #if 1
+    #if 0
     std::cout << "=========== CBO Types CACHE ===========" << std::endl;
     
     for (const auto& [name, types] : cache)
