@@ -376,7 +376,7 @@ static json_type JClassDeclStmt(const ast::ClassDeclStmt& class_stmt)
 
 static json_type JVarDeclStmt(const ast::VarDeclStmt& vardecl_stmt)
 {
-    std::cout << "JVarDeclStmt" << std::endl;
+    // std::cout << "JVarDeclStmt" << std::endl;
     return json_type{
         {"kind" , KindToString(vardecl_stmt.kind_)},
         {"name", vardecl_stmt.name},
@@ -474,6 +474,7 @@ json_type method_to_json(const pma::metric::MethodInfo& m) {
     j["returnType"] = m.returnType;
 
     // sets (sorted for stable output)
+    std::cout << m.usedFields.size() << " " << m.calledMethods.size() << " " << m.referencedTypes.size() << std::endl;
     j["usedFields"] = to_sorted_vector(m.usedFields);
     j["calledMethods"] = to_sorted_vector(m.calledMethods);
     j["referencedTypes"] = to_sorted_vector(m.referencedTypes);

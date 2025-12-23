@@ -5,7 +5,6 @@ class Helper {
 
 class RFCExample {
     func m1() {
-        // вызов собственного метода
         m2()
     }
 

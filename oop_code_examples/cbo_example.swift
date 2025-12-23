@@ -11,11 +11,11 @@ class Logger {
 }
 
 class CBOExample {
-    var service: Service?
+    var service: Service
 
     var logger: Logger = Logger()
 
-    init(service: Service?) {
+    init(service: Service) {
         self.service = service
     }
 
@@ -25,11 +25,12 @@ class CBOExample {
 
     func createRepository() -> Repository {
         let repo = Repository()
+        repo.save()
         return repo
     }
 
     func work() {
-        service?.doWork()
+        service.doWork()
         logger.log("working")
     }
 }

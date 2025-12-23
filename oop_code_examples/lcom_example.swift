@@ -1,17 +1,24 @@
+class Helper {
+    func h1() { }
+    func h2() { }
+}
+
 class LCOMGood {
     var a: Int = 0
     var b: Int = 0
 
     func useA() {
-        a += 1
+        self.a += 1
+
     }
 
     func useB() {
-        b += 1
+        self.b += 1
     }
 
     func useBoth() {
-        a += b
+        self.a += 1
+        self.b += 1
     }
 }
 
@@ -20,14 +27,18 @@ class LCOMBad {
     var b: Int = 0
 
     func onlyA1() {
-        a += 1
+        self.a += 1
     }
 
     func onlyA2() {
-        a += 2
+        self.a += 2
     }
 
     func onlyB1() {
-        b += 1
+        self.b += 1
+    }
+    
+    func helperOnly() {
+        Helper().h1()   
     }
 }

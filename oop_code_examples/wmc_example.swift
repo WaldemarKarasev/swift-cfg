@@ -49,6 +49,7 @@ class WMCExample: UIViewController {
     }
 
     func increment() {
+        var tmp = 0
         value += 1
     }
 
@@ -78,9 +79,17 @@ class SecondChild : WMCExample {
 
 class ThirdChild : SecondChild {
     var data: String = "line"
-
+    
     func foo() {
         value = 0
     }
+}
 
+class CrandChild : ThirdChild {
+    var data: Maybe = "line"
+    var log : Log
+    func foo() {
+        value = 0
+        log.Log("Hello")
+    }
 }
